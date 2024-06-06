@@ -8,6 +8,10 @@ const playerMovement = require("./lib/playerMovement");
 const ballMovement = require("./lib/ballMovement");
 const validate = require("./lib/validate");
 
+// All three functions returns matchDetails which in turn, is used to populate the player
+// coordinates. Any new engine should return a similar object so that the server and frontend
+// can read the data properly!!!
+
 //------------------------
 //    Functions
 //------------------------

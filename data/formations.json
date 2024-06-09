@@ -1,0 +1,28 @@
+{
+  "4-4-2": [
+    { "position_abv": "GK", "x": 340, "y": 0 },
+    { "position_abv": "RB", "x": 550, "y": 175 },
+    { "position_abv": "RCB", "x": 450, "y": 150 },
+    { "position_abv": "LCB", "x": 230, "y": 150 },
+    { "position_abv": "LB", "x": 130, "y": 175 },
+    { "position_abv": "RM", "x": 550, "y": 300 },
+    { "position_abv": "CM", "x": 340, "y": 300 },
+    { "position_abv": "CM", "x": 340, "y": 400 },
+    { "position_abv": "LM", "x": 130, "y": 300 },
+    { "position_abv": "ST", "x": 280, "y": 500 },
+    { "position_abv": "ST", "x": 400, "y": 500 }
+  ],
+  "4-3-3": [
+    { "position_abv": "GK", "x": 340, "y": 0 },
+    { "position_abv": "RB", "x": 550, "y": 175 },
+    { "position_abv": "RCB", "x": 450, "y": 150 },
+    { "position_abv": "LCB", "x": 230, "y": 150 },
+    { "position_abv": "LB", "x": 130, "y": 175 },
+    { "position_abv": "RM", "x": 550, "y": 300 },
+    { "position_abv": "CM", "x": 340, "y": 350 },
+    { "position_abv": "LM", "x": 130, "y": 300 },
+    { "position_abv": "RW", "x": 550, "y": 450 },
+    { "position_abv": "CF", "x": 340, "y": 500 },
+    { "position_abv": "LW", "x": 130, "y": 450 }
+  ]
+}

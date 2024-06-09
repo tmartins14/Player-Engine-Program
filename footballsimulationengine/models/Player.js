@@ -14,12 +14,12 @@ const Player = sequelize.define(
       type: DataTypes.STRING,
       allowNull: false,
     },
-    position_id: {
-      type: DataTypes.INTEGER,
+    position: {
+      type: DataTypes.STRING,
       allowNull: false,
       references: {
         model: Position,
-        key: "position_id",
+        key: "position_abv",
       },
     },
     rating: {
@@ -56,22 +56,6 @@ const Player = sequelize.define(
     },
     jumping: {
       type: DataTypes.INTEGER,
-      allowNull: false,
-    },
-    start_pos_x: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-    },
-    start_pos_y: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-    },
-    fitness: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-    },
-    injured: {
-      type: DataTypes.BOOLEAN,
       allowNull: false,
     },
   },

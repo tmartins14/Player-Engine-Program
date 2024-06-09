@@ -30,6 +30,14 @@ const PlayerMovement = sequelize.define(
     },
     z: {
       type: DataTypes.FLOAT,
+      allowNull: true,
+    },
+    fitness: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
+    injured: {
+      type: DataTypes.BOOLEAN,
       allowNull: false,
     },
     game_running: {

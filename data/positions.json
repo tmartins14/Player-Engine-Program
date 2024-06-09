@@ -1,0 +1,23 @@
+{
+  "GK": "Goalkeeper",
+  "SW": "Sweeper",
+  "RB": "Right Back",
+  "RWB": "Right Wing-Back",
+  "CB": "Center-Back",
+  "RCB": "Right Center-Back",
+  "LCB": "Left Center-Back",
+  "LB": "Left Back",
+  "LWB": "Left Wing-Back",
+  "CDM": "Center Defensive Midfielder",
+  "CM": "Center Midfielder",
+  "RCM": "Right Center Midfielder",
+  "LCM": "Left Center Midfielder",
+  "RM": "Right Midfielder",
+  "RW": "Right Winger",
+  "LM": "Left Midfielder",
+  "LW": "Left Wing",
+  "CAM": "Center Attacking Midfielder",
+  "SS": "Second Striker",
+  "ST": "Striker",
+  "CF": "Center Forward"
+}

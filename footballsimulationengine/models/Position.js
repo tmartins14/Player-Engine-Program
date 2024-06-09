@@ -1,8 +1,8 @@
 const { DataTypes } = require("sequelize");
-const sequelize = require("../config/database");
+const sequelize = require("../services/dataServices/database");
 
 const Position = sequelize.define(
-  "Position",
+  "positions",
   {
     position_id: {
       type: DataTypes.INTEGER,
@@ -13,10 +13,14 @@ const Position = sequelize.define(
       type: DataTypes.STRING,
       allowNull: false,
     },
+    position_abv: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
   },
   {
     timestamps: false,
-    tableName: "Positions",
+    tableName: "positions",
   }
 );
 

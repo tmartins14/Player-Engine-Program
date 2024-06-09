@@ -1,8 +1,8 @@
 const { DataTypes } = require("sequelize");
-const sequelize = require("../config/database");
+const sequelize = require("../services/dataServices/database");
 
 const MatchEvent = sequelize.define(
-  "MatchEvent",
+  "match_events",
   {
     frame: {
       type: DataTypes.INTEGER,
@@ -39,7 +39,7 @@ const MatchEvent = sequelize.define(
   },
   {
     timestamps: false,
-    tableName: "MatchEvents",
+    tableName: "match_events",
   }
 );
 

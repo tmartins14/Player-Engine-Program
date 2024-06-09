@@ -1,8 +1,8 @@
 const { DataTypes } = require("sequelize");
-const sequelize = require("../config/database");
+const sequelize = require("../services/dataServices/database");
 
 const BallMovement = sequelize.define(
-  "BallMovement",
+  "ball_movement",
   {
     frame_count: {
       type: DataTypes.INTEGER,
@@ -44,7 +44,7 @@ const BallMovement = sequelize.define(
   },
   {
     timestamps: false,
-    tableName: "BallMovements",
+    tableName: "ball_movement",
   }
 );
 

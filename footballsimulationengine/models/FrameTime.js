@@ -1,8 +1,8 @@
 const { DataTypes } = require("sequelize");
-const sequelize = require("../config/database");
+const sequelize = require("../services/dataServices/database");
 
 const FrameTime = sequelize.define(
-  "FrameTime",
+  "frame_times",
   {
     frame: {
       type: DataTypes.INTEGER,
@@ -20,7 +20,7 @@ const FrameTime = sequelize.define(
   },
   {
     timestamps: false,
-    tableName: "FrameTimes",
+    tableName: "frame_times",
   }
 );
 

@@ -1,10 +1,10 @@
 // Stores data on various formations and the X,Y coordinates of each player
 const { DataTypes } = require("sequelize");
-const sequelize = require("../config/database");
+const sequelize = require("../services/dataServices/database");
 const Position = require("./position");
 
 const Formation = sequelize.define(
-  "Formation",
+  "formations",
   {
     formation_id: {
       type: DataTypes.INTEGER,
@@ -34,7 +34,7 @@ const Formation = sequelize.define(
   },
   {
     timestamps: false,
-    tableName: "Formations",
+    tableName: "formations",
   }
 );
 

@@ -9,8 +9,12 @@
 //  b. Player does not have the ball and team has the ball
 //  c. Player does not have the ball and team does not have the ball
 
+const PlayerModel = require("../models/player");
+const PlayerMovement = require("../models/playerMovement");
+
 class Player {
   constructor(
+    playerId,
     name,
     teamId,
     position,
@@ -26,6 +30,7 @@ class Player {
     hasBall = false,
     isOffside = false
   ) {
+    this.playerId = playerId;
     this.name = name;
     this.teamId = teamId;
     this.position = position;
@@ -41,6 +46,78 @@ class Player {
     this.hasBall = hasBall;
     this.isOffside = isOffside;
     this.currentPosition = null; // Will be set by the team
+  }
+
+  static async createNewPlayer(playerData) {
+    try {
+      const newPlayer = await PlayerModel.create(playerData);
+      return new Player(
+        newPlayer.player_id,
+        newPlayer.name,
+        newPlayer.position,
+        newPlayer.rating,
+        newPlayer.pace,
+        newPlayer.shooting,
+        newPlayer.dribbling,
+        newPlayer.defending,
+        newPlayer.passing,
+        newPlayer.physical,
+        newPlayer.saving
+      );
+    } catch (error) {
+      console.error("Error creating new player:", error);
+      throw error;
+    }
+  }
+
+  async createPlayerMovement(movementData) {
+    try {
+      const newMovement = await PlayerMovement.create({
+        ...movementData,
+        player_id: this.playerId,
+      });
+      return newMovement;
+    } catch (error) {
+      console.error("Error creating player movement:", error);
+      throw error;
+    }
+  }
+
+  async getPlayerDetails() {
+    try {
+      const playerDetails = await PlayerModel.findByPk(this.playerId);
+      return playerDetails;
+    } catch (error) {
+      console.error("Error fetching player details:", error);
+      throw error;
+    }
+  }
+
+  async getPlayerMovements() {
+    try {
+      const playerMovements = await PlayerMovement.findAll({
+        where: { player_id: this.playerId },
+      });
+      return playerMovements;
+    } catch (error) {
+      console.error("Error fetching player movements:", error);
+      throw error;
+    }
+  }
+
+  async updatePlayerMovement(movementId, updatedData) {
+    try {
+      const movement = await PlayerMovement.findByPk(movementId);
+      if (movement) {
+        await movement.update(updatedData);
+        return movement;
+      } else {
+        throw new Error("Movement not found");
+      }
+    } catch (error) {
+      console.error("Error updating player movement:", error);
+      throw error;
+    }
   }
 
   setPosition(position) {
@@ -280,7 +357,20 @@ class Player {
 
   checkBoundariesCompetency(field) {
     if (!this.isWithinBoundaries(field)) {
-      this.moveToWithinBoundaries();
+      this.moveToWithinBoundaries(field);
     }
   }
 }
+
+const BallState = {
+  IN_PLAY: "in_play",
+  DEAD: "dead",
+};
+
+const PlayerState = {
+  HAS_BALL: "has_ball",
+  TEAM_HAS_BALL: "team_has_ball",
+  OPPONENT_HAS_BALL: "opponent_has_ball",
+};
+
+module.exports = Player;

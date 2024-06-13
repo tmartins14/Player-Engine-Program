@@ -24,39 +24,35 @@ const Player = sequelize.define(
     },
     rating: {
       type: DataTypes.INTEGER,
-      allowNull: false,
+      allowNull: true,
+    },
+    pace: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
     },
     passing: {
       type: DataTypes.INTEGER,
-      allowNull: false,
+      allowNull: true,
     },
     shooting: {
       type: DataTypes.INTEGER,
-      allowNull: false,
+      allowNull: true,
     },
-    tackling: {
+    defending: {
       type: DataTypes.INTEGER,
-      allowNull: false,
+      allowNull: true,
+    },
+    dribbling: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
+    physical: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
     },
     saving: {
       type: DataTypes.INTEGER,
-      allowNull: false,
-    },
-    agility: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-    },
-    strength: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-    },
-    penalty_taking: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-    },
-    jumping: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
+      allowNull: true,
     },
   },
   {

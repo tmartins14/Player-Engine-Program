@@ -40,6 +40,14 @@ const PlayerMovement = sequelize.define(
       type: DataTypes.BOOLEAN,
       allowNull: false,
     },
+    hasBall: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+    },
+    isOffside: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+    },
     game_running: {
       type: DataTypes.BOOLEAN,
       allowNull: false,

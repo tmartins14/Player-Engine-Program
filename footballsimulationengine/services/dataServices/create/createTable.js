@@ -28,4 +28,4 @@ async function createTable(modelName) {
 }
 
 // Example usage: Replace 'leagues' with the name of the model you wish to drop
-createTable("formations");
+createTable("player_movement");

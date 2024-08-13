@@ -13,8 +13,7 @@ const PlayerModel = require("../models/player");
 const PlayerMovement = require("../models/playerMovement");
 
 class Player {
-  constructor(
-    playerId,
+  constructor({
     name,
     teamId,
     position,
@@ -25,12 +24,12 @@ class Player {
     defending,
     passing,
     physical,
-    fitness,
+    saving,
+    fitness = 100,
     injured = false,
     hasBall = false,
-    isOffside = false
-  ) {
-    this.playerId = playerId;
+    isOffside = false,
+  }) {
     this.name = name;
     this.teamId = teamId;
     this.position = position;
@@ -41,29 +40,34 @@ class Player {
     this.defending = defending;
     this.passing = passing;
     this.physical = physical;
+    this.saving = saving;
     this.fitness = fitness;
     this.injured = injured;
     this.hasBall = hasBall;
     this.isOffside = isOffside;
     this.currentPosition = null; // Will be set by the team
+    this.createNewPlayer(); // automatically adds player to database when player instance is created
   }
 
-  static async createNewPlayer(playerData) {
+  // Database Methods
+  async createNewPlayer() {
     try {
+      const playerData = {
+        name: this.name,
+        team_id: this.teamId,
+        position: this.position,
+        rating: this.rating,
+        pace: this.pace,
+        shooting: this.shooting,
+        dribbling: this.dribbling,
+        defending: this.defending,
+        passing: this.passing,
+        physical: this.physical,
+        saving: this.saving,
+      };
       const newPlayer = await PlayerModel.create(playerData);
-      return new Player(
-        newPlayer.player_id,
-        newPlayer.name,
-        newPlayer.position,
-        newPlayer.rating,
-        newPlayer.pace,
-        newPlayer.shooting,
-        newPlayer.dribbling,
-        newPlayer.defending,
-        newPlayer.passing,
-        newPlayer.physical,
-        newPlayer.saving
-      );
+      this.playerId = newPlayer.player_id;
+      console.log("New Player Created:", newPlayer);
     } catch (error) {
       console.error("Error creating new player:", error);
       throw error;
@@ -120,17 +124,150 @@ class Player {
     }
   }
 
+  // Player Class Helper Methods
+  calculateDefensiveVicinityRadius(field) {
+    const fieldSize = Math.min(field.width, field.length);
+    const vicinityPercentage = 0.01; // Vicinity covers 1% of the smaller field dimension
+    const baseRadius = fieldSize * vicinityPercentage;
+    const adjustedRadius = baseRadius * (this.defending / 100); // Adjust based on defending attribute
+    return adjustedRadius;
+  }
+
+  calculateDistance(position1, position2) {
+    return Math.sqrt(
+      Math.pow(position2.x - position1.x, 2) +
+        Math.pow(position2.y - position1.y, 2)
+    );
+  }
+
+  // Player Class Action Methods
+
+  // General Methods
   setPosition(position) {
     this.currentPosition = position;
   }
 
-  isPerformingDefensiveAction() {
-    // Placeholder for checking if the player is performing a defensive action
+  // Defensive Action Methods
+
+  performDefensiveAction(opponents, ball, field) {
+    const vicinityRadius = this.calculateDefensiveVicinityRadius(field);
+    const successProbability = 0.8; // Fixed probability of successfully completing an action
+
+    const ballDistance = this.calculateDistance(
+      this.currentPosition,
+      ball.position
+    );
+
+    // Check if the ball is within the player's vicinity
+    if (ballDistance <= vicinityRadius) {
+      const randomFactor = Math.random();
+
+      if (randomFactor <= successProbability) {
+        if (this.canIntercept(ball)) {
+          this.intercept(ball);
+        } else if (this.canSlideTackle(opponents, ball)) {
+          const isFoul = this.tackle(opponents, ball, true);
+          if (isFoul) return true;
+        } else if (this.canStandingTackle(opponents, ball)) {
+          const isFoul = this.tackle(opponents, ball, false);
+          if (isFoul) return true;
+        } else if (this.canBlockShot(ball)) {
+          this.blockShot(ball);
+        } else if (this.canClear(ball)) {
+          this.clearBall(ball);
+        }
+      }
+    }
     return false;
   }
 
-  stopDefensiveAction() {
-    // Placeholder for stopping a defensive action
+  canIntercept(ball) {
+    // Logic to determine if the player can intercept the ball
+    return this.isBallInPath(ball) && !ball.carrier; // Example condition
+  }
+
+  intercept(ball) {
+    console.log(`${this.name} intercepts the ball!`);
+    // Logic to perform interception
+  }
+
+  canSlideTackle(opponents, ball) {
+    const opponentWithBall = opponents.find((opponent) => opponent.hasBall);
+    return opponentWithBall && this.isOpponentInVicinity(opponentWithBall, 1.0); // Full vicinity
+  }
+
+  canStandingTackle(opponents, ball) {
+    const opponentWithBall = opponents.find((opponent) => opponent.hasBall);
+    return opponentWithBall && this.isOpponentInVicinity(opponentWithBall, 0.1); // 10% vicinity
+  }
+
+  tackle(opponents, ball, isSlideTackle) {
+    const foulProbability = 0.2; // 20% chance that a tackle results in a foul
+    const isFoul = Math.random() < foulProbability;
+
+    if (isFoul) {
+      console.log(
+        `${this.name} commits a foul during a ${
+          isSlideTackle ? "slide" : "standing"
+        } tackle!`
+      );
+      return true; // Indicate that a foul occurred
+    } else {
+      console.log(
+        `${this.name} successfully performs a ${
+          isSlideTackle ? "slide" : "standing"
+        } tackle!`
+      );
+      // Logic for successful tackle
+      return false;
+    }
+  }
+
+  canBlockShot(ball) {
+    // Logic to determine if the player can block a shot
+    return ball.isShot && this.isInFrontOfGoal(ball); // Example condition
+  }
+
+  blockShot(ball) {
+    console.log(`${this.name} blocks the shot!`);
+    // Logic to perform shot block
+  }
+
+  canClear(ball) {
+    // Logic to determine if the player can clear the ball
+    return ball.isLoose && this.isNearGoal(ball); // Example condition
+  }
+
+  clearBall(ball) {
+    console.log(`${this.name} clears the ball!`);
+    // Logic to perform clearance
+  }
+
+  isBallInPath(ball) {
+    // Placeholder for checking if the ball is in the player's path
+    return true;
+  }
+
+  isOpponentInVicinity(opponent, vicinityMultiplier) {
+    const opponentDistance = this.calculateDistance(
+      this.currentPosition,
+      opponent.currentPosition
+    );
+    const vicinityRadius = this.calculateDefensiveVicinityRadius({
+      width: 100,
+      length: 100,
+    }); // Assume field size for now
+    return opponentDistance <= vicinityRadius * vicinityMultiplier;
+  }
+
+  isInFrontOfGoal(ball) {
+    // Placeholder logic for checking if the player is in front of the goal relative to the ball
+    return true;
+  }
+
+  isNearGoal(ball) {
+    // Placeholder logic for checking if the player is near the goal
+    return true;
   }
 
   isPassing() {

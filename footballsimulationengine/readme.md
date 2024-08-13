@@ -1,212 +1,92 @@
-# Football Simulation Engine
----
-## Overview
-This module was designed to allow the simulation of football (soccer) matches between two teams. It consists of three functions that
- - Initiate a match
- - complete an iteration / movement
- - switch team sides / start second half
----
-## Latest Version (2.2.1)
-- fix closestPlayer Report
-- enhance test cases
-- keep ball with player when they run or sprint
-- improve run/sprint direction
-- improve passing
-- improve Error reporting
-- track shot over time
-- add saving
-- add simple player marking
-- add test simulation data
----
-## Install
-Make sure your version of Node.js is at least 7.6.0. (The 'async/await' function is used)
+# Soccer Simulation Project
 
-```npm install --save footballsimulationengine```
+This project is a soccer simulation program designed to model player behavior and interactions on a soccer field. It focuses on simulating various aspects of soccer gameplay, including player movement, defensive actions, and decision-making based on game state.
 
----
-## Initiate Game
-This function is a promise that expects two teams and pitch information in JSON format. The function will return match details including player start positions, match statistics, ball position and an iteration log.
+## Project Components
 
-#### Example Call
-```
-initiateGame(team1, team2, pitch).then(function(matchDetails){
-  console.log(matchDetails);
-}).catch(function(error){
-  console.error("Error: ", error);
-})
-```
+### Player Class
 
-## Play Iteration
-This function is a promise that expects a single JSON input. This input will match the output of the initiate game function and will make the next move of both teams, resolving the final position of each player.
+The `Player` class represents a soccer player in the simulation. It includes attributes such as name, team ID, position, rating, and various skills (e.g., pace, shooting, defending).
 
-#### Example Call
-```
-playIteration(matchDetails).then(function (matchDetails) {
-  console.log(matchDetails);
-}).catch(function(error){
-  console.error("Error: ", error);
-}
-```
-## Start Second Half (Switch Sides)
-This function is a promise that switches the side of each team, as happens typically at the end of a half. This uses the output from either an initiate game or a play iteration.
+**Key Methods:**
 
-#### Example Call
-```
-startSecondHalf(matchDetails).then(function (matchDetails) {
-  console.log(matchDetails);
-}).catch(function(error){
-  console.error("Error: ", error);
-}
-```
----
-## Recommendations
-* Users can determine how many iterations make a half
-* Test data found in 'init_config' is the data used for testing
-* Iteration Logs give an overview of what has happened in the iteration
-* Uncomment console.log(output) to receive iteration by iteration information of each players iteration action, movement, original position and final position (start POS).
+- `performDefensiveAction`: Determines and executes defensive actions (e.g., tackles, interceptions) based on the player's position and vicinity.
+- `tackle`: Handles both slide and standing tackles, with the potential for fouls.
+- `intercept`, `blockShot`, `clearBall`: Execute specific defensive actions.
 
-## Additional Information
-* Get in touch with any questions [email](mailto:aiden.g@live.co.uk)
-* See a match example [here](https://youtu.be/yxTXFrAZCdY)
-* Raise issues in [github](https://github.com/GallagherAiden/footballSimulationEngine/issues)
----
-# Examples:
-Examples are baked into the file system (>v2.1.0) in the 'init_config' directory:
- - index.js : example function usages
- - team1.json : example json for a primary team
- - team2.json : example json for a secondary team
- - pitch.json : example json for pitch details
- - iteration.json : shows what the overall output given for each iteration
+### Ball Class
 
-#### Example Team JSON
-Teams must have the following information and must have 11 players included in it.
-* A start position for each player, with both teams given start positions as if they were the team at the top of a vertical pitch (shooting to the bottom of the screen). The startPOS object should be [widthPosition, heightPosition] where the height placement should not be a greater number than half the pitch height.
-* skills should not exceed 100
-* skill.jumping refers to height a player can jump in centimetres (so can and probably should be greater than 100).
-```
-{
-  "name": "Team1",
-  "players": [{
-      "name": "Player",
-      "position": "GK",
-      "rating": "99",
-      "skill": {
-        "passing": "99",
-        "shooting": "99",
-        "tackling": "99",
-        "saving": "99",
-        "agility": "99",
-        "strength": "99",
-        "penalty_taking": "99",
-        "jumping": "300"
-      },
-      "startPOS": [60,0],
-      "fitness": 100,
-      "injured": false
-    }...],
-  "manager": "Aiden"
-}
-```
+The `Ball` class simulates the behavior and physics of a soccer ball on the field. It includes attributes for position, velocity, and control status.
 
-#### Example Pitch JSON
-Pitch has been tested for width of 120 - 680 and height of 600 - 1050. The below is the current provided pitch size.
-```
-{
-	"pitchWidth": 680,
-	"pitchHeight": 1050
-}
-```
+**Key Methods:**
 
-#### Example Match Details
-v2.1.0 - ball movement added so that a kicked ball makes movements over time. This can be seen in 'ball.ballOverIterations'. If empty, no new ball movements will occur. Deflections may occur as players move over iterations.
+- `resetBall`: Resets the ball to the center of the field, typically used for the start of play or after a goal.
+- `resetForGoalKick`: Positions the ball on the edge of the 6-yard box for a goal kick.
+- `resetForCornerKick`, `resetForFreeKick`, `resetForThrowIn`: Adjusts the ball's position for specific restart scenarios.
+
+### Testing Scripts
+
+- **`playerTest.js`**: A script designed to test the functionality of the `Player` class. It includes tests for creating players, managing player movements, and verifying competencies.
+
+### Models
+
+- **Player Model**: Defines the player attributes stored in the database, including skills and positions.
+- **PlayerMovement Model**: Records player movements and states during a game, such as position, fitness, and ball possession.
+
+## Assumptions and Hard-Coded Values
+
+### Assumptions
+
+1. **Field Dimensions**: The field is assumed to be a standard size, with the width and length specified in meters. Adjust these values based on the actual field used in your simulation.
+2. **Player Attributes**: Attributes like defending and fitness are set between 0 and 100 and are used to calculate various actions' effectiveness and vicinity.
+
+### Hard-Coded Values
+
+1. **Defensive Vicinity Percentage**: The defensive vicinity is currently set to 1% of the field's smaller dimension, scaled by the player's defending attribute. This could be dynamically calculated based on game state and player fatigue.
+
+2. **Success Probability**: The probability of successfully completing a defensive action is fixed at 80%. This value could be adjusted based on player attributes, match context, or historical performance data.
+
+3. **Foul Probability**: The chance of committing a foul during a tackle is set at 20%. This could be refined to account for player attributes like aggression or experience.
+
+4. **Action Ranges**:
+
+   - **Slide Tackle**: Uses the full defensive vicinity.
+   - **Standing Tackle**: Limited to 10% of the defensive vicinity, requiring closer proximity to the opponent.
+
+5. **Goal Kick Positioning**: The ball is placed randomly along the edge of the 6-yard box, calculated as 5% of the field length and 26% of the field width.
+
+## Future Enhancements
+
+### Player Class Enhancements
+
+1. **Dynamic Probabilities**: Calculate probabilities for successful actions and fouls based on dynamic factors like player fatigue, pressure, and match context.
+
+2. **Comprehensive Game State Management**: Develop a more detailed game state representation to manage events like fouls, goals, and player substitutions.
+
+3. **AI Decision-Making**: Implement AI logic for player decision-making based on tactical objectives and opponent strategies.
+
+4. **Expanded Event Handling**: Introduce more event types, such as corner kicks, goal kicks, and substitutions, to enhance realism.
+
+### Ball Class Enhancements
+
+1. **Realistic Ball Physics**: Implement spin, air resistance, bounce, and height (z-coordinates) to simulate realistic ball movement.
+
+2. **Dynamic Velocity and Deceleration**: Implement a realistic model for ball movement that accounts for initial velocity, deceleration due to air resistance, and surface friction.
+
+3. **Collision Detection**: Add collision detection logic to handle interactions with players, goals, and field boundaries.
+
+4. **Ball Spin**: Implement logic to simulate spin affecting ball trajectory.
+
+5. **Ball Height (Z-coordinates)**: Introduce a third dimension to simulate volleys, headers, and other aerial plays.
+
+### General Enhancements
+
+1. **Graphical User Interface**: Develop a user interface to visualize the simulation and allow user interactions.
+
+## Getting Started
+
+To run the project and execute tests, ensure you have the required dependencies installed. Use the following command to run the test scripts:
+
+```bash
+node scripts/playerTest.js
 ```
-{ kickOffTeam:
-   { name: 'Team1',
-     players:
-      [ [Object],
-        [Object],
-        [Object],
-        [Object],
-        [Object],
-        [Object],
-        [Object],
-        [Object],
-        [Object],
-        [Object],
-        [Object] ],
-     manager: 'Aiden'
-     intent: 'defend' },
-  secondTeam:
-   { name: 'Team2',
-     players:
-      [ [Object],
-        [Object],
-        [Object],
-        [Object],
-        [Object],
-        [Object],
-        [Object],
-        [Object],
-        [Object],
-        [Object],
-        [Object] ],
-     manager: 'Joe',
-     intent: 'attack' },
-  pitchSize: [ 120, 600 ],
-  ball:
-   { position: [ 76, 314, 0 ],
-     withPlayer: true,
-     Player: 'Joe Bloggs',
-     withTeam: 'Team2',
-     direction: 'south' },
-     ballOverIterations: []
-  half: 1,
-  kickOffTeamStatistics:
-   { goals: 0,
-     shots: 0,
-     corners: 0,
-     freekicks: 0,
-     penalties: 0,
-     fouls: 0 },
-  secondTeamStatistics:
-   { goals: 0,
-     shots: 0,
-     corners: 0,
-     freekicks: 0,
-     penalties: 0,
-     fouls: 0 },
-  iterationLog:
-   [ 'Closest Player to ball: Aiden Gallagher',
-     'Closest Player to ball: Joe Bloggs' ] }
-```
-Example Player JSON (after game initiated):
-Any and all player objects may be altered between iterations. Including the relative position, origin position and action.
-Action should be - 'null' if the simulation is to be run normally. This can be overriden with any of the following actions:
-'shoot', 'throughBall', 'pass', 'cross', 'tackle', 'intercept', 'slide', 'run', 'sprint', 'cleared', 'boot'. The player must have the ball in order to complete ball specific actions like 'shoot'. Any invalid actions will result in the simulation running as normal.
-```
-{ name: 'Louise Johnson',
-    position: 'ST',
-    rating: '88',
-    skill:
-     { passing: '20',
-       shooting: '20',
-       tackling: '20',
-       saving: '20',
-       agility: '20',
-       strength: '20',
-       penalty_taking: '20',
-       jumping: '280' },
-    startPOS: [ 60, 300 ],
-    fitness: 100,
-    injured: false,
-    originPOS: [ 70, 270 ],
-    relativePOS: [ 70, 270 ],
-    action: 'none',
-    offside: false,
-    cards: {
-      yellow: 0,
-      red: 0
-    }
-    hasBall: true }
-```
----

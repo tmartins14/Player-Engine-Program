@@ -3,12 +3,15 @@ const PlayerModel = require("../models/player");
 const PlayerMovementModel = require("../models/playerMovement");
 const Player = require("../components/Player");
 
+let failedTests = 0;
+let totalTests = 0;
+
 // Utility function for logging test results
 function logTestResult(testName, condition) {
-  if (condition) {
-    console.log(`${testName}: PASS`);
-  } else {
+  totalTests++;
+  if (!condition) {
     console.log(`${testName}: FAIL`);
+    failedTests++;
   }
 }
 
@@ -105,7 +108,6 @@ async function testUpdatePlayerMovement(player, movement) {
 }
 
 function testSetPosition(player) {
-  console.log("Testing setPosition...");
   const newPosition = { x: 300, y: 400 };
   player.setPosition(newPosition);
   logTestResult(
@@ -128,6 +130,8 @@ const runTests = async () => {
 
     // Test the setPosition method
     testSetPosition(newPlayer);
+
+    console.log(`Test Completed. ${failedTests}/${totalTests} tests failed.`);
   } catch (error) {
     console.error("Error during tests:", error);
   } finally {

@@ -134,7 +134,7 @@ class Field {
       return {
         topLeft: {
           x: -this.penaltyBoxWidth / 2,
-          y: this.length / 2 - this.penaltyBoxLength,
+          y: this.length / 2,
         },
         topRight: { x: this.penaltyBoxWidth / 2, y: this.length / 2 },
         bottomLeft: { x: -this.penaltyBoxWidth / 2, y: penaltyBoxYEnd },
@@ -179,10 +179,11 @@ class Field {
   }
 
   // Define the corner circle
-  getCornerCircle(side) {
+  getCornerCircle(xSide, ySide) {
     // Return the coordinates and radius for drawing the corner quarter circle based on the side (left or right)
-    const x = side === "left" ? -this.width / 2 : this.width / 2;
-    const y = side === "top" ? this.length / 2 : -this.length / 2;
+    const x = xSide === "left" ? -this.width / 2 : this.width / 2;
+    const y = ySide === "top" ? this.length / 2 : -this.length / 2;
+
     return {
       center: { x, y },
       radius: this.cornerCircleRadius,

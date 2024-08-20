@@ -1,10 +1,13 @@
 const Field = require("../components/Field");
 
+let failedTests = 0;
+let totalTests = 0;
+
 function logTestResult(testName, condition) {
-  if (condition) {
-    console.log(`${testName}: Pass`);
-  } else {
+  totalTests++;
+  if (!condition) {
     console.log(`${testName}: Fail`);
+    failedTests++;
   }
 }
 
@@ -116,6 +119,7 @@ const testPenaltyAreas = () => {
     homePenaltyArea.topRight.x === awayPenaltyArea.bottomRight.x &&
       homePenaltyArea.topRight.y === -awayPenaltyArea.bottomRight.y
   );
+
   logTestResult(
     "Symmetry Test Bottom-Left",
     homePenaltyArea.bottomLeft.x === awayPenaltyArea.topLeft.x &&
@@ -178,8 +182,11 @@ const testPenaltySpot = () => {
 const testCornerCircle = () => {
   console.log("Test 9: Corner Circle...");
 
-  const topLeftCornerCircle = field.getCornerCircle("left");
-  const bottomRightCornerCircle = field.getCornerCircle("right");
+  const topLeftCornerCircle = field.getCornerCircle("left", "top");
+  const bottomRightCornerCircle = field.getCornerCircle("right", "bottom");
+  const bottomLeftCornerCircle = field.getCornerCircle("left", "bottom");
+  const topRightCornerCircle = field.getCornerCircle("right", "top");
+
   logTestResult(
     "Top-Left Corner Circle",
     topLeftCornerCircle.center.x === -field.width / 2 &&
@@ -189,6 +196,23 @@ const testCornerCircle = () => {
     "Bottom-Right Corner Circle",
     bottomRightCornerCircle.center.x === field.width / 2 &&
       bottomRightCornerCircle.center.y === -field.length / 2
+  );
+  logTestResult(
+    "Bottom-Left Corner Circle",
+    bottomLeftCornerCircle.center.x === -field.width / 2 &&
+      bottomLeftCornerCircle.center.y === -field.length / 2
+  );
+  logTestResult(
+    "Top-Right Corner Circle",
+    topRightCornerCircle.center.x === field.width / 2 &&
+      topRightCornerCircle.center.y === field.length / 2
+  );
+  logTestResult(
+    "Corner Circle Radius",
+    topLeftCornerCircle.radius === field.cornerCircleRadius &&
+      bottomRightCornerCircle.radius === field.cornerCircleRadius &&
+      bottomLeftCornerCircle.radius === field.cornerCircleRadius &&
+      topRightCornerCircle.radius === field.cornerCircleRadius
   );
 };
 
@@ -207,7 +231,9 @@ const runFieldTests = async () => {
     testPenaltySpot();
     testCornerCircle();
 
-    console.log("Field Class Tests Completed.");
+    console.log(
+      `Field Class Tests Completed. ${failedTests}/${totalTests} tests failed.`
+    );
   } catch (error) {
     console.error("Error during field tests: ", error);
   }

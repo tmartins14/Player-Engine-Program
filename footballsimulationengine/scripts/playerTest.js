@@ -6,9 +6,9 @@ const Player = require("../components/Player");
 // Utility function for logging test results
 function logTestResult(testName, condition) {
   if (condition) {
-    console.log(`${testName}: Pass`);
+    console.log(`${testName}: PASS`);
   } else {
-    console.log(`${testName}: Fail`);
+    console.log(`${testName}: FAIL`);
   }
 }
 

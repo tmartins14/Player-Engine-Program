@@ -22,12 +22,12 @@ class Field {
     // Set field dimensions based on the number of players
     switch (playerCount) {
       case 6: // 6v6
-        return { width: 55, length: 70 };
+        return { width: 55, length: 72 };
       case 7: // 7v7
-        return { width: 65, length: 85 };
+        return { width: 65, length: 82 };
       case 11: // 11v11
       default: // Default to full-size field
-        return { width: 100, length: 130 };
+        return { width: 100, length: 132 };
     }
   }
 
@@ -132,7 +132,10 @@ class Field {
       };
     } else {
       return {
-        topLeft: { x: -this.penaltyBoxWidth / 2, y: this.length / 2 },
+        topLeft: {
+          x: -this.penaltyBoxWidth / 2,
+          y: this.length / 2 - this.penaltyBoxLength,
+        },
         topRight: { x: this.penaltyBoxWidth / 2, y: this.length / 2 },
         bottomLeft: { x: -this.penaltyBoxWidth / 2, y: penaltyBoxYEnd },
         bottomRight: { x: this.penaltyBoxWidth / 2, y: penaltyBoxYEnd },

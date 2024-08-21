@@ -22,7 +22,7 @@ function testBallInitialization() {
 
   logTestResult(
     "Initial Position",
-    ball.position.x === field.width / 2 && ball.position.y === field.length / 2
+    ball.position.x === 0 && ball.position.y === 0
   );
   logTestResult(
     "Initial Velocity",
@@ -43,7 +43,7 @@ function testBallReset() {
 
   logTestResult(
     "Reset Position",
-    ball.position.x === field.width / 2 && ball.position.y === field.length / 2
+    ball.position.x === 0 && ball.position.y === 0
   );
   logTestResult(
     "Reset Velocity",
@@ -62,14 +62,16 @@ function testGoalKickReset() {
   const ball = new Ball(field);
   ball.resetForGoalKick("home");
 
-  const boxEdge = field.length * 0.05;
-  const boxWidth = field.width * 0.26;
+  const sixYardBox = field.getSixYardBox("home");
 
-  logTestResult("Goal Kick Position Y", ball.position.y === boxEdge);
+  const boxEdge = Math.abs(sixYardBox.topLeft.y);
+  const boxLeftEdge = sixYardBox.topLeft.x;
+  const boxRightEdge = sixYardBox.topRight.x;
+
+  logTestResult("Goal Kick Position Y", Math.abs(ball.position.y) === boxEdge);
   logTestResult(
     "Goal Kick Position X",
-    ball.position.x >= (field.width - boxWidth) / 2 &&
-      ball.position.x <= (field.width + boxWidth) / 2
+    ball.position.x >= boxLeftEdge && ball.position.x <= boxRightEdge
   );
 }
 
@@ -82,15 +84,16 @@ function testCornerKickReset() {
   ball.resetForCornerKick("home", "left");
 
   logTestResult(
-    "Corner Kick Position",
-    ball.position.x === 0 && ball.position.y === 0
+    "Corner Kick Position Home Left",
+    ball.position.x === -field.width / 2 &&
+      ball.position.y === -field.length / 2
   );
 
   ball.resetForCornerKick("away", "right");
 
   logTestResult(
-    "Corner Kick Position Away",
-    ball.position.x === field.width && ball.position.y === field.length
+    "Corner Kick Position Away Right",
+    ball.position.x === field.width / 2 && ball.position.y === field.length / 2
   );
 }
 

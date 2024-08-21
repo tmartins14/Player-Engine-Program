@@ -143,6 +143,28 @@ class Field {
     }
   }
 
+  // Define the six-yard box areas relative to the center
+  getSixYardBox(team) {
+    const sixYardBoxYStart = this.sixYardBoxLength - this.length / 2;
+    const sixYardBoxYEnd = this.length / 2 - this.sixYardBoxLength;
+
+    if (team === "home") {
+      return {
+        topLeft: { x: -this.sixYardBoxWidth / 2, y: sixYardBoxYStart },
+        topRight: { x: this.sixYardBoxWidth / 2, y: sixYardBoxYStart },
+        bottomLeft: { x: -this.sixYardBoxWidth / 2, y: -this.length / 2 },
+        bottomRight: { x: this.sixYardBoxWidth / 2, y: -this.length / 2 },
+      };
+    } else {
+      return {
+        topLeft: { x: -this.sixYardBoxWidth / 2, y: this.length / 2 },
+        topRight: { x: this.sixYardBoxWidth / 2, y: this.length / 2 },
+        bottomLeft: { x: -this.sixYardBoxWidth / 2, y: sixYardBoxYEnd },
+        bottomRight: { x: this.sixYardBoxWidth / 2, y: sixYardBoxYEnd },
+      };
+    }
+  }
+
   // Define the center circle
   getCenterCircle() {
     // Return the coordinates and radius for drawing the center circle

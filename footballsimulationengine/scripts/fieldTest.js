@@ -1,18 +1,19 @@
 const Field = require("../components/Field");
 
+// Utility function for logging test results
 let failedTests = 0;
 let totalTests = 0;
 
 function logTestResult(testName, condition) {
   totalTests++;
   if (!condition) {
-    console.log(`${testName}: Fail`);
+    console.log(`${testName}: FAIL`);
     failedTests++;
   }
 }
 
 // Test 1: Field Dimensions Based on Player Count
-const testFieldDimensions = () => {
+function testFieldDimensions() {
   console.log("Test 1: Field Dimensions Based on Player Count...");
 
   const field11v11 = new Field(11);
@@ -32,25 +33,25 @@ const testFieldDimensions = () => {
     "6v6 Field Dimensions",
     field6v6.width === 55 && field6v6.length === 72
   );
-};
-
-const field = new Field(11);
+}
 
 // Test 2: Center Position
-const testCenterPosition = () => {
+function testCenterPosition() {
   console.log("Test 2: Center Position...");
 
+  const field = new Field(11);
   const centerPosition = field.getCenterPosition();
   logTestResult(
     "Center Position",
     centerPosition.x === 0 && centerPosition.y === 0
   );
-};
+}
 
 // Test 3: Coordinate System Boundaries
-const testCoordinateSystem = () => {
+function testCoordinateSystem() {
   console.log("Test 3: Coordinate System Boundaries...");
 
+  const field = new Field(11);
   const coordinateSystem = field.getCoordinateSystem();
   logTestResult(
     "Coordinate System Origin",
@@ -66,12 +67,13 @@ const testCoordinateSystem = () => {
     coordinateSystem.bottomRight.x === field.width / 2 &&
       coordinateSystem.bottomRight.y === -field.length / 2
   );
-};
+}
 
 // Test 4: Field Zones
-const testFieldZones = () => {
+function testFieldZones() {
   console.log("Test 4: Field Zones...");
 
+  const field = new Field(11);
   const zones = field.getZones();
   const thirdLength = field.length / 3;
 
@@ -99,12 +101,13 @@ const testFieldZones = () => {
     "Neutral Zone End",
     zones.neutralZone.end === zones.attackingZone.start
   );
-};
+}
 
 // Test 5: Penalty Areas - Symmetry Checks
-const testPenaltyAreas = () => {
+function testPenaltyAreas() {
   console.log("Test 5: Penalty Areas - Symmetry Checks...");
 
+  const field = new Field(11);
   const homePenaltyArea = field.getPenaltyArea("home");
   const awayPenaltyArea = field.getPenaltyArea("away");
 
@@ -119,7 +122,6 @@ const testPenaltyAreas = () => {
     homePenaltyArea.topRight.x === awayPenaltyArea.bottomRight.x &&
       homePenaltyArea.topRight.y === -awayPenaltyArea.bottomRight.y
   );
-
   logTestResult(
     "Symmetry Test Bottom-Left",
     homePenaltyArea.bottomLeft.x === awayPenaltyArea.topLeft.x &&
@@ -130,12 +132,44 @@ const testPenaltyAreas = () => {
     homePenaltyArea.bottomRight.x === awayPenaltyArea.topRight.x &&
       homePenaltyArea.bottomRight.y === -awayPenaltyArea.topRight.y
   );
-};
+}
 
-// Test 6: Center Circle
-const testCenterCircle = () => {
-  console.log("Test 6: Center Circle...");
+// Test 6: Six-Yard Box - Symmetry Checks
+function testSixYardBoxSymmetry() {
+  console.log("Test 6: Six-Yard Box - Symmetry Checks...");
 
+  const field = new Field(11);
+  const homeSixYardBox = field.getSixYardBox("home");
+  const awaySixYardBox = field.getSixYardBox("away");
+
+  // Symmetry Checks
+  logTestResult(
+    "Symmetry Test Top-Left",
+    homeSixYardBox.topLeft.x === awaySixYardBox.bottomLeft.x &&
+      homeSixYardBox.topLeft.y === -awaySixYardBox.bottomLeft.y
+  );
+  logTestResult(
+    "Symmetry Test Top-Right",
+    homeSixYardBox.topRight.x === awaySixYardBox.bottomRight.x &&
+      homeSixYardBox.topRight.y === -awaySixYardBox.bottomRight.y
+  );
+  logTestResult(
+    "Symmetry Test Bottom-Left",
+    homeSixYardBox.bottomLeft.x === awaySixYardBox.topLeft.x &&
+      homeSixYardBox.bottomLeft.y === -awaySixYardBox.topLeft.y
+  );
+  logTestResult(
+    "Symmetry Test Bottom-Right",
+    homeSixYardBox.bottomRight.x === awaySixYardBox.topRight.x &&
+      homeSixYardBox.bottomRight.y === -awaySixYardBox.topRight.y
+  );
+}
+
+// Test 7: Center Circle
+function testCenterCircle() {
+  console.log("Test 7: Center Circle...");
+
+  const field = new Field(11);
   const centerCircle = field.getCenterCircle();
   logTestResult(
     "Center Circle",
@@ -143,14 +177,16 @@ const testCenterCircle = () => {
       centerCircle.center.y === 0 &&
       centerCircle.radius === field.centerCircleRadius
   );
-};
+}
 
-// Test 7: Penalty Semi-Circle
-const testPenaltySemiCircle = () => {
-  console.log("Test 7: Penalty Semi-Circle...");
+// Test 8: Penalty Semi-Circle
+function testPenaltySemiCircle() {
+  console.log("Test 8: Penalty Semi-Circle...");
 
+  const field = new Field(11);
   const homePenaltySemiCircle = field.getPenaltySemiCircle("home");
   const awayPenaltySemiCircle = field.getPenaltySemiCircle("away");
+
   logTestResult(
     "Home Penalty Semi-Circle",
     homePenaltySemiCircle.center.y ===
@@ -160,14 +196,16 @@ const testPenaltySemiCircle = () => {
     "Away Penalty Semi-Circle",
     awayPenaltySemiCircle.center.y === field.length / 2 - field.penaltyBoxLength
   );
-};
+}
 
-// Test 8: Penalty Spot
-const testPenaltySpot = () => {
-  console.log("Test 8: Penalty Spot...");
+// Test 9: Penalty Spot
+function testPenaltySpot() {
+  console.log("Test 9: Penalty Spot...");
 
+  const field = new Field(11);
   const homePenaltySpot = field.getPenaltySpot("home");
   const awayPenaltySpot = field.getPenaltySpot("away");
+
   logTestResult(
     "Home Penalty Spot",
     homePenaltySpot.y === -field.length / 2 + field.penaltyBoxLength
@@ -176,12 +214,13 @@ const testPenaltySpot = () => {
     "Away Penalty Spot",
     awayPenaltySpot.y === field.length / 2 - field.penaltyBoxLength
   );
-};
+}
 
-// Test 9: Corner Circle
-const testCornerCircle = () => {
-  console.log("Test 9: Corner Circle...");
+// Test 10: Corner Circle
+function testCornerCircle() {
+  console.log("Test 10: Corner Circle...");
 
+  const field = new Field(11);
   const topLeftCornerCircle = field.getCornerCircle("left", "top");
   const bottomRightCornerCircle = field.getCornerCircle("right", "bottom");
   const bottomLeftCornerCircle = field.getCornerCircle("left", "bottom");
@@ -214,7 +253,7 @@ const testCornerCircle = () => {
       bottomLeftCornerCircle.radius === field.cornerCircleRadius &&
       topRightCornerCircle.radius === field.cornerCircleRadius
   );
-};
+}
 
 // Run all tests
 const runFieldTests = async () => {
@@ -226,6 +265,7 @@ const runFieldTests = async () => {
     testCoordinateSystem();
     testFieldZones();
     testPenaltyAreas();
+    testSixYardBoxSymmetry();
     testCenterCircle();
     testPenaltySemiCircle();
     testPenaltySpot();

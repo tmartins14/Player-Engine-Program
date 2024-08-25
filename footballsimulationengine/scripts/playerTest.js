@@ -1,6 +1,4 @@
-const sequelize = require("../services/dataServices/database");
-const PlayerModel = require("../models/player");
-const PlayerMovementModel = require("../models/playerMovement");
+const Field = require("../components/Field");
 const Player = require("../components/Player");
 
 let failedTests = 0;
@@ -15,19 +13,13 @@ function logTestResult(testName, condition) {
   }
 }
 
-async function syncDatabase() {
-  // Sync only the players and player_movement tables
-  await PlayerModel.sync({ force: true });
-  await PlayerMovementModel.sync({ force: true });
-  console.log("Database synchronized.");
-}
-
-async function testCreateNewPlayer() {
-  // Create a new player instance (this will automatically call createNewPlayer)
-  const newPlayer = new Player({
+// Test 1: Player Positioning Within Field Boundaries
+function testSetPositionWithinBounds() {
+  const field = new Field(11);
+  const player = new Player({
     name: "John Doe",
-    teamId: 1, // Assume teamId 1 exists
-    position: "ST", // Striker
+    teamId: 1,
+    position: "ST",
     rating: 85,
     pace: 70,
     shooting: 60,
@@ -37,105 +29,147 @@ async function testCreateNewPlayer() {
     physical: 75,
   });
 
-  // Wait for the player to be created in the database
-  await new Promise((resolve) => setTimeout(resolve, 1000)); // Adjust the timeout as needed
-
-  const playerDetails = await PlayerModel.findByPk(newPlayer.playerId);
-  logTestResult("testCreateNewPlayer", playerDetails !== null);
-  return newPlayer;
-}
-
-async function testCreatePlayerMovement(player) {
-  // Create a movement for the new player
-  const newMovement = await player.createPlayerMovement({
-    frame: 1,
-    game_id: 1, // Assume game_id 1 exists
-    team_id: player.teamId,
-    x: 100,
-    y: 150,
-    z: 0, // Optional, can be omitted
-    fitness: 100,
-    injured: false,
-    hasBall: false,
-    isOffside: false,
-    game_running: true,
-    phase: 1, // Assume phase 1 exists
-  });
-
-  logTestResult("testCreatePlayerMovement", newMovement !== null);
-  return newMovement;
-}
-
-async function testGetPlayerDetails(player) {
-  // Fetch player details
-  const playerDetails = await player.getPlayerDetails();
-  logTestResult(
-    "testGetPlayerDetails",
-    playerDetails !== null && playerDetails.name === player.name
-  );
-}
-
-async function testGetPlayerMovements(player) {
-  // Fetch player movements
-  const playerMovements = await player.getPlayerMovements();
-  logTestResult(
-    "testGetPlayerMovements",
-    Array.isArray(playerMovements) && playerMovements.length > 0
-  );
-  return playerMovements;
-}
-
-async function testUpdatePlayerMovement(player, movement) {
-  // Update player movement
-  const updatedMovement = await player.updatePlayerMovement(movement.id, {
-    x: 200,
-    y: 250,
-    fitness: 95,
-    injured: true,
-    hasBall: true,
-    isOffside: true,
-  });
-
-  logTestResult(
-    "testUpdatePlayerMovement",
-    updatedMovement.x === 200 &&
-      updatedMovement.y === 250 &&
-      updatedMovement.fitness === 95 &&
-      updatedMovement.injured === true &&
-      updatedMovement.hasBall === true &&
-      updatedMovement.isOffside === true
-  );
-}
-
-function testSetPosition(player) {
-  const newPosition = { x: 300, y: 400 };
+  const newPosition = { x: field.width / 2 - 1, y: field.length / 2 - 1 };
   player.setPosition(newPosition);
   logTestResult(
-    "testSetPosition",
-    player.currentPosition !== null &&
-      player.currentPosition.x === newPosition.x &&
-      player.currentPosition.y === newPosition.y
+    "testSetPositionWithinBounds",
+    player.currentPosition.x === newPosition.x &&
+      player.currentPosition.y === newPosition.y &&
+      player.isWithinBoundaries(field)
   );
+}
+
+// Test 2: Player Positioning Outside Field Boundaries
+function testSetPositionOutsideBounds() {
+  const field = new Field(11);
+  const player = new Player({
+    name: "John Doe",
+    teamId: 1,
+    position: "ST",
+    rating: 85,
+    pace: 70,
+    shooting: 60,
+    dribbling: 50,
+    defending: 80,
+    passing: 70,
+    physical: 75,
+  });
+
+  const newPosition = { x: field.width / 2 + 10, y: field.length / 2 + 10 };
+  player.setPosition(newPosition);
+  logTestResult(
+    "testSetPositionOutsideBounds",
+    player.currentPosition.x === newPosition.x &&
+      player.currentPosition.y === newPosition.y &&
+      !player.isWithinBoundaries(field)
+  );
+}
+
+// Test 3: Defensive Action within Vicinity
+function testPerformDefensiveActionWithinVicinity() {
+  const field = new Field(11);
+  const player = new Player({
+    name: "John Doe",
+    teamId: 1,
+    position: "CB",
+    rating: 85,
+    pace: 70,
+    shooting: 60,
+    dribbling: 50,
+    defending: 90, // High defending skill
+    passing: 70,
+    physical: 75,
+  });
+
+  const ball = { position: { x: 0, y: 0 }, isShot: false, isLoose: true };
+  const opponents = [{ currentPosition: { x: 2, y: 2 }, hasBall: true }];
+
+  const foul = player.performDefensiveAction(opponents, ball, field);
+  logTestResult("testPerformDefensiveActionWithinVicinity", !foul);
+}
+
+// Test 4: Defensive Action outside Vicinity
+function testPerformDefensiveActionOutsideVicinity() {
+  const field = new Field(11);
+  const player = new Player({
+    name: "John Doe",
+    teamId: 1,
+    position: "CB",
+    rating: 85,
+    pace: 70,
+    shooting: 60,
+    dribbling: 50,
+    defending: 50, // Lower defending skill
+    passing: 70,
+    physical: 75,
+  });
+
+  const ball = { position: { x: 50, y: 50 }, isShot: false, isLoose: true };
+  const opponents = [{ currentPosition: { x: 50, y: 50 }, hasBall: true }];
+
+  const foul = player.performDefensiveAction(opponents, ball, field);
+  logTestResult("testPerformDefensiveActionOutsideVicinity", !foul);
+}
+
+// Test 5: Player Offside Check
+function testPlayerOffside() {
+  const field = new Field(11);
+  const player = new Player({
+    name: "John Doe",
+    teamId: 1,
+    position: "ST",
+    rating: 85,
+    pace: 70,
+    shooting: 60,
+    dribbling: 50,
+    defending: 80,
+    passing: 70,
+    physical: 75,
+  });
+
+  const ball = { position: { x: -20, y: 0 }, isShot: false };
+  player.setPosition({ x: 10, y: 0 }); // Position ahead of the ball (offside)
+
+  logTestResult("testPlayerOffside", player.isOffside(ball));
+}
+
+// Test 6: Player Not Offside
+function testPlayerNotOffside() {
+  const field = new Field(11);
+  const player = new Player({
+    name: "John Doe",
+    teamId: 1,
+    position: "ST",
+    rating: 85,
+    pace: 70,
+    shooting: 60,
+    dribbling: 50,
+    defending: 80,
+    passing: 70,
+    physical: 75,
+  });
+
+  const ball = { position: { x: 20, y: 0 }, isShot: false };
+  player.setPosition({ x: 10, y: 0 }); // Position behind the ball (not offside)
+
+  logTestResult("testPlayerNotOffside", !player.isOffside(ball));
 }
 
 const runTests = async () => {
   try {
-    await syncDatabase();
+    // Database sync is commented out since we're not testing database interactions
+    // await syncDatabase();
 
-    const newPlayer = await testCreateNewPlayer();
-    const newMovement = await testCreatePlayerMovement(newPlayer);
-    await testGetPlayerDetails(newPlayer);
-    const playerMovements = await testGetPlayerMovements(newPlayer);
-    await testUpdatePlayerMovement(newPlayer, playerMovements[0]);
-
-    // Test the setPosition method
-    testSetPosition(newPlayer);
+    testSetPositionWithinBounds();
+    testSetPositionOutsideBounds();
+    testPerformDefensiveActionWithinVicinity();
+    testPerformDefensiveActionOutsideVicinity();
+    testPlayerOffside();
+    testPlayerNotOffside();
 
     console.log(`Test Completed. ${failedTests}/${totalTests} tests failed.`);
   } catch (error) {
     console.error("Error during tests:", error);
-  } finally {
-    await sequelize.close();
   }
 };
 

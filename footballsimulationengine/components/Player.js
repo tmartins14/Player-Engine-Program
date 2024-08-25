@@ -9,8 +9,7 @@
 //  b. Player does not have the ball and team has the ball
 //  c. Player does not have the ball and team does not have the ball
 
-const PlayerModel = require("../models/player");
-const PlayerMovement = require("../models/playerMovement");
+const Field = require("./Field");
 
 class Player {
   constructor({
@@ -29,6 +28,8 @@ class Player {
     injured = false,
     hasBall = false,
     isOffside = false,
+    field = new Field(11), // Default to an 11v11 field
+    teamInstructions = {}, // Added teamInstructions
   }) {
     this.name = name;
     this.teamId = teamId;
@@ -46,111 +47,73 @@ class Player {
     this.hasBall = hasBall;
     this.isOffside = isOffside;
     this.currentPosition = null; // Will be set by the team
-    this.createNewPlayer(); // automatically adds player to database when player instance is created
+    this.field = field; // The field on which the player is playing
+    this.teamInstructions = teamInstructions; // Store team instructions
+
+    // Commenting out database operations for now
+    // this.createNewPlayer(); // automatically adds player to database when player instance is created
   }
 
-  // Database Methods
-  async createNewPlayer() {
-    try {
-      const playerData = {
-        name: this.name,
-        team_id: this.teamId,
-        position: this.position,
-        rating: this.rating,
-        pace: this.pace,
-        shooting: this.shooting,
-        dribbling: this.dribbling,
-        defending: this.defending,
-        passing: this.passing,
-        physical: this.physical,
-        saving: this.saving,
-      };
-      const newPlayer = await PlayerModel.create(playerData);
-      this.playerId = newPlayer.player_id;
-      console.log("New Player Created:", newPlayer);
-    } catch (error) {
-      console.error("Error creating new player:", error);
-      throw error;
-    }
-  }
-
-  async createPlayerMovement(movementData) {
-    try {
-      const newMovement = await PlayerMovement.create({
-        ...movementData,
-        player_id: this.playerId,
-      });
-      return newMovement;
-    } catch (error) {
-      console.error("Error creating player movement:", error);
-      throw error;
-    }
-  }
-
-  async getPlayerDetails() {
-    try {
-      const playerDetails = await PlayerModel.findByPk(this.playerId);
-      return playerDetails;
-    } catch (error) {
-      console.error("Error fetching player details:", error);
-      throw error;
-    }
-  }
-
-  async getPlayerMovements() {
-    try {
-      const playerMovements = await PlayerMovement.findAll({
-        where: { player_id: this.playerId },
-      });
-      return playerMovements;
-    } catch (error) {
-      console.error("Error fetching player movements:", error);
-      throw error;
-    }
-  }
-
-  async updatePlayerMovement(movementId, updatedData) {
-    try {
-      const movement = await PlayerMovement.findByPk(movementId);
-      if (movement) {
-        await movement.update(updatedData);
-        return movement;
-      } else {
-        throw new Error("Movement not found");
-      }
-    } catch (error) {
-      console.error("Error updating player movement:", error);
-      throw error;
-    }
-  }
-
-  // Player Class Helper Methods
-  calculateDefensiveVicinityRadius(field) {
-    const fieldSize = Math.min(field.width, field.length);
-    const vicinityPercentage = 0.01; // Vicinity covers 1% of the smaller field dimension
-    const baseRadius = fieldSize * vicinityPercentage;
-    const adjustedRadius = baseRadius * (this.defending / 100); // Adjust based on defending attribute
-    return adjustedRadius;
-  }
-
-  calculateDistance(position1, position2) {
-    return Math.sqrt(
-      Math.pow(position2.x - position1.x, 2) +
-        Math.pow(position2.y - position1.y, 2)
-    );
-  }
-
-  // Player Class Action Methods
-
-  // General Methods
+  // Method to set the player's position on the field
   setPosition(position) {
-    this.currentPosition = position;
+    if (this.field.isWithinBounds(position)) {
+      this.currentPosition = position;
+    } else {
+      console.error("Position is out of bounds.");
+    }
+  }
+
+  updateTeamInstructions(instructions) {
+    this.teamInstructions = instructions;
+  }
+
+  decideAction(ball, opponents) {
+    const { role, aggression, passingStrategy } = this.teamInstructions;
+
+    if (role === "attacker" && this.hasBall) {
+      this.shootOrPass(ball, passingStrategy);
+    } else if (role === "defender" && !this.hasBall) {
+      this.performDefensiveAction(opponents, ball);
+    } else if (role === "midfielder") {
+      this.midfielderAction(ball, opponents, aggression, passingStrategy);
+    } else {
+      this.defaultAction();
+    }
+  }
+
+  shootOrPass(ball, passingStrategy) {
+    if (passingStrategy === "direct") {
+      this.shoot(ball);
+    } else if (passingStrategy === "possession") {
+      this.passBall();
+    }
+  }
+
+  midfielderAction(ball, opponents, aggression, passingStrategy) {
+    if (aggression > 50) {
+      this.performDefensiveAction(opponents, ball);
+    } else {
+      this.shootOrPass(ball, passingStrategy);
+    }
+  }
+
+  defaultAction() {
+    console.log(`${this.name} is holding position.`);
+  }
+
+  shoot(ball) {
+    console.log(`${this.name} takes a shot!`);
+    // Placeholder logic for shooting
+  }
+
+  passBall() {
+    console.log(`${this.name} makes a pass!`);
+    // Placeholder logic for passing
   }
 
   // Defensive Action Methods
-
-  performDefensiveAction(opponents, ball, field) {
-    const vicinityRadius = this.calculateDefensiveVicinityRadius(field);
+  performDefensiveAction(opponents, ball) {
+    const vicinityRadius = this.calculateDefensiveVicinityRadius(this.field);
     const successProbability = 0.8; // Fixed probability of successfully completing an action
 
     const ballDistance = this.calculateDistance(
@@ -243,6 +206,21 @@ class Player {
     // Logic to perform clearance
   }
 
+  // Helper Methods
+  calculateDefensiveVicinityRadius(field) {
+    const fieldSize = Math.min(field.width, field.length);
+    const vicinityPercentage = 0.01; // Vicinity covers 1% of the smaller field dimension
+    const baseRadius = fieldSize * vicinityPercentage;
+    return baseRadius * (this.defending / 100); // Adjust based on defending attribute
+  }
+
+  calculateDistance(position1, position2) {
+    return Math.sqrt(
+      Math.pow(position2.x - position1.x, 2) +
+        Math.pow(position2.y - position1.y, 2)
+    );
+  }
+
   isBallInPath(ball) {
     // Placeholder for checking if the ball is in the player's path
     return true;
@@ -253,10 +231,7 @@ class Player {
       this.currentPosition,
       opponent.currentPosition
     );
-    const vicinityRadius = this.calculateDefensiveVicinityRadius({
-      width: 100,
-      length: 100,
-    }); // Assume field size for now
+    const vicinityRadius = this.calculateDefensiveVicinityRadius(this.field); // Use field size
     return opponentDistance <= vicinityRadius * vicinityMultiplier;
   }
 
@@ -270,24 +245,7 @@ class Player {
     return true;
   }
 
-  isPassing() {
-    // Placeholder for checking if the player is passing
-    return false;
-  }
-
-  stopPassing() {
-    // Placeholder for stopping a pass
-  }
-
-  isShooting() {
-    // Placeholder for checking if the player is shooting
-    return false;
-  }
-
-  stopShooting() {
-    // Placeholder for stopping a shot
-  }
-
+  // Other methods
   moveToFormationPosition() {
     if (this.formationPosition) {
       this.currentPosition = { ...this.formationPosition };
@@ -298,68 +256,31 @@ class Player {
     // Placeholder for moving the player to an onside position
   }
 
-  moveToWithinBoundaries(field) {
-    // Placeholder for moving the player within the field boundaries
+  moveToWithinBoundaries() {
+    if (!this.isWithinBoundaries()) {
+      // Placeholder for moving the player within the field boundaries
+    }
   }
 
-  // Helper methods
-  isWithinBoundaries(field) {
+  isWithinBoundaries() {
     return (
-      0 <= this.currentPosition.x &&
-      this.currentPosition.x <= field.width &&
-      0 <= this.currentPosition.y &&
-      this.currentPosition.y <= field.length
+      this.currentPosition.x >= 0 &&
+      this.currentPosition.x <= this.field.width &&
+      this.currentPosition.y >= 0 &&
+      this.currentPosition.y <= this.field.length
     );
   }
 
   isOffside(ball) {
     // Simplified offside logic
-    if (
+    return (
       this.position === "attacker" &&
       this.currentPosition.x > ball.position.x &&
       !this.hasBall
-    ) {
-      return true;
-    }
-    return false;
-  }
-
-  isTowardsOpponentGoal(ball) {
-    // Placeholder for checking if the shot direction is towards the opponent's goal
-    return true;
-  }
-
-  findNearestTeammate(players) {
-    // Placeholder for finding the nearest teammate
-    return players[0];
-  }
-
-  findNearestOpponent(opponents) {
-    // Placeholder for finding the nearest opponent
-    return opponents[0];
-  }
-
-  calculateAngle(position1, position2, position3) {
-    // Placeholder for calculating the angle between three positions
-    return 90;
-  }
-
-  hasDirectLine(teammate) {
-    // Placeholder for checking if there is a direct line between the player and the teammate
-    return true;
-  }
-
-  isInFormation(formation) {
-    // Placeholder for checking if the player is in the correct formation position
-    return (
-      this.formationPosition &&
-      this.currentPosition.x === this.formationPosition.x &&
-      this.currentPosition.y === this.formationPosition.y
     );
   }
 
-  // Competency enforcement methods
-  enforceCompetencies(ball, team, field) {
+  enforceCompetencies(ball, team) {
     const ballState = ball.isInPlay ? BallState.IN_PLAY : BallState.DEAD;
     const playerState = this.hasBall
       ? PlayerState.HAS_BALL
@@ -369,73 +290,79 @@ class Player {
 
     switch (ballState) {
       case BallState.IN_PLAY:
-        this.handleInPlayState(playerState, ball, team, field);
+        this.handleInPlayState(playerState, ball, team);
         break;
       case BallState.DEAD:
-        this.handleDeadBallState(playerState, ball, team, field);
+        this.handleDeadBallState(playerState, ball, team);
         break;
     }
   }
 
-  handleInPlayState(playerState, ball, team, field) {
+  handleInPlayState(playerState, ball, team) {
     switch (playerState) {
       case PlayerState.HAS_BALL:
-        this.handleHasBallState(ball, team, field);
+        this.handleHasBallState(ball, team);
         break;
       case PlayerState.TEAM_HAS_BALL:
-        this.handleTeamHasBallState(ball, team, field);
+        this.handleTeamHasBallState(ball, team);
         break;
       case PlayerState.OPPONENT_HAS_BALL:
-        this.handleOpponentHasBallState(ball, team, field);
+        this.handleOpponentHasBallState(ball, team);
+        break;
+      default:
+        this.defaultAction();
         break;
     }
   }
 
-  handleDeadBallState(playerState, ball, team, field) {
+  handleDeadBallState(playerState, ball, team) {
     switch (playerState) {
       case PlayerState.HAS_BALL:
-        this.handleDeadBallHasBallState(ball, team, field);
+        this.handleDeadBallHasBallState(ball, team);
         break;
       case PlayerState.TEAM_HAS_BALL:
-        this.handleDeadBallTeamHasBallState(ball, team, field);
+        this.handleDeadBallTeamHasBallState(ball, team);
         break;
       case PlayerState.OPPONENT_HAS_BALL:
-        this.handleDeadBallOpponentHasBallState(ball, team, field);
+        this.handleDeadBallOpponentHasBallState(ball, team);
+        break;
+      default:
+        this.defaultAction();
         break;
     }
   }
 
-  handleHasBallState(ball, team, field) {
+  handleHasBallState(ball, team) {
     // Handle player actions when they have the ball
     this.checkShotCompetency(ball);
     this.checkPassCompetency();
     this.checkOutletCompetency(team);
   }
 
-  handleTeamHasBallState(ball, team, field) {
+  handleTeamHasBallState(ball, team) {
     // Handle player actions when their team has the ball
     this.checkFormationCompetency(team);
-    this.checkBoundariesCompetency(field);
+    this.checkBoundariesCompetency();
   }
 
-  handleOpponentHasBallState(ball, team, field) {
+  handleOpponentHasBallState(ball, team) {
     // Handle player actions when the opponent has the ball
     this.checkDefensiveCompetency(ball);
     this.checkOffsideCompetency(ball);
-    this.checkBoundariesCompetency(field);
+    this.checkBoundariesCompetency();
   }
 
-  handleDeadBallHasBallState(ball, team, field) {
+  handleDeadBallHasBallState(ball, team) {
     // Handle player actions when they have the ball during a dead ball situation
     this.moveToFormationPosition();
   }
 
-  handleDeadBallTeamHasBallState(ball, team, field) {
+  handleDeadBallTeamHasBallState(ball, team) {
     // Handle player actions when their team has the ball during a dead ball situation
     this.moveToFormationPosition();
   }
 
-  handleDeadBallOpponentHasBallState(ball, team, field) {
+  handleDeadBallOpponentHasBallState(ball, team) {
     // Handle player actions when the opponent has the ball during a dead ball situation
     this.moveToFormationPosition();
   }
@@ -492,13 +419,14 @@ class Player {
     }
   }
 
-  checkBoundariesCompetency(field) {
-    if (!this.isWithinBoundaries(field)) {
-      this.moveToWithinBoundaries(field);
+  checkBoundariesCompetency() {
+    if (!this.isWithinBoundaries()) {
+      this.moveToWithinBoundaries();
     }
   }
 }
 
+// Enum-like objects for ball and player states
 const BallState = {
   IN_PLAY: "in_play",
   DEAD: "dead",

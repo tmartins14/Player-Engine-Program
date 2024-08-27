@@ -18,6 +18,102 @@ class Team {
     player.setTeam(null); // Remove the team reference from the player
   }
 
+  getFormationPositions() {
+    // Define formation positions based on formation type
+    const formations = {
+      "4-4-2": {
+        GK: { x: 0, y: -0.45 },
+        RB: { x: -0.3, y: -0.3 },
+        CB1: { x: -0.1, y: -0.3 },
+        CB2: { x: 0.1, y: -0.3 },
+        LB: { x: 0.3, y: -0.3 },
+        RM: { x: -0.3, y: 0 },
+        CM1: { x: -0.1, y: 0 },
+        CM2: { x: 0.1, y: 0 },
+        LM: { x: 0.3, y: 0 },
+        ST1: { x: -0.1, y: 0.3 },
+        ST2: { x: 0.1, y: 0.3 },
+      },
+      "4-3-3": {
+        GK: { x: 0, y: -0.45 },
+        RB: { x: -0.3, y: -0.3 },
+        CB1: { x: -0.1, y: -0.3 },
+        CB2: { x: 0.1, y: -0.3 },
+        LB: { x: 0.3, y: -0.3 },
+        CM: { x: 0, y: 0 },
+        RM: { x: -0.2, y: 0 },
+        LM: { x: 0.2, y: 0 },
+        RW: { x: -0.2, y: 0.3 },
+        ST: { x: 0, y: 0.3 },
+        LW: { x: 0.2, y: 0.3 },
+      },
+      // Add other formations as needed
+    };
+
+    return formations[this.formation] || {};
+  }
+
+  setFormationPositions() {
+    const formationPositions = this.getFormationPositions();
+
+    this.players.forEach((player) => {
+      const positionKey = player.position;
+      const relativePosition = formationPositions[positionKey];
+
+      if (relativePosition) {
+        const absolutePosition = {
+          x: relativePosition.x * this.field.width,
+          y: relativePosition.y * this.field.length,
+        };
+        player.setPosition(absolutePosition);
+      } else {
+        console.error(
+          `Unknown position for player ${player.name}: ${positionKey}`
+        );
+      }
+    });
+  }
+
+  // Method to assign roles and instructions to players
+  assignRolesAndInstructions() {
+    this.players.forEach((player, index) => {
+      let role;
+      let formationPosition;
+
+      // Determine role and formation position based on the formation
+      if (index < this.formation.defenders) {
+        role = "defender";
+        formationPosition = this.getDefensivePosition(index);
+      } else if (
+        index <
+        this.formation.defenders + this.formation.midfielders
+      ) {
+        role = "midfielder";
+        formationPosition = this.getMidfieldPosition(index);
+      } else {
+        role = "attacker";
+        formationPosition = this.getAttackingPosition(index);
+      }
+
+      // Create team instructions based on the role and strategy
+      const teamInstructions = {
+        role: role,
+        aggression: this.strategy.aggression || 50, // Default aggression level
+        passingStrategy: this.strategy.passing || "balanced", // Default passing strategy
+      };
+
+      // Update the player's team instructions and set their formation position
+      player.updateTeamInstructions(teamInstructions);
+      player.setFormationPosition(formationPosition);
+    });
+  }
+
+  // Method to change the team's strategy dynamically
+  updateStrategy(newStrategy) {
+    this.strategy = { ...this.strategy, ...newStrategy };
+    this.assignRolesAndInstructions(); // Reassign roles and instructions based on the new strategy
+  }
+
   setFormation(newFormation) {
     // Change the team's formation and update player positions
     this.formation = newFormation;
@@ -30,48 +126,6 @@ class Team {
       const position = this.calculatePlayerPosition(player);
       player.receiveInstruction("moveToPosition", position);
     }
-  }
-
-  calculatePlayerPosition(player) {
-    // Logic to determine the player's position based on the formation
-    // This is a simplified example; the actual implementation would be more complex
-    const formationPositions = this.getFormationPositions();
-    return formationPositions[player.position] || { x: 0, y: 0 };
-  }
-
-  getFormationPositions() {
-    // Define formation positions based on formation type
-    const formations = {
-      "4-4-2": {
-        GK: { x: 0, y: -45 },
-        RB: { x: -30, y: -30 },
-        CB1: { x: -10, y: -30 },
-        CB2: { x: 10, y: -30 },
-        LB: { x: 30, y: -30 },
-        RM: { x: -30, y: 0 },
-        CM1: { x: -10, y: 0 },
-        CM2: { x: 10, y: 0 },
-        LM: { x: 30, y: 0 },
-        ST1: { x: -10, y: 30 },
-        ST2: { x: 10, y: 30 },
-      },
-      "4-3-3": {
-        GK: { x: 0, y: -45 },
-        RB: { x: -30, y: -30 },
-        CB1: { x: -10, y: -30 },
-        CB2: { x: 10, y: -30 },
-        LB: { x: 30, y: -30 },
-        CM: { x: 0, y: 0 },
-        RM: { x: -20, y: 0 },
-        LM: { x: 20, y: 0 },
-        RW: { x: -20, y: 30 },
-        ST: { x: 0, y: 30 },
-        LW: { x: 20, y: 30 },
-      },
-      // Add other formations as needed
-    };
-
-    return formations[this.formation] || {};
   }
 
   changeStrategy(newStrategy) {

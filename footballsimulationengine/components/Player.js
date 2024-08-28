@@ -29,6 +29,7 @@ class Player {
     hasBall = false,
     isOffside = false,
     field = new Field(11), // Default to an 11v11 field
+    team = null,
     teamInstructions = {}, // Added teamInstructions
   }) {
     this.name = name;
@@ -46,9 +47,10 @@ class Player {
     this.injured = injured;
     this.hasBall = hasBall;
     this.isOffside = isOffside;
-    this.currentPosition = null; // Will be set by the team
+    this.currentPosition = null; // Will be set by the Team class
     this.field = field; // The field on which the player is playing
-    this.teamInstructions = teamInstructions; // Store team instructions
+    this.team = null; // Will be set by the Team class
+    this.teamInstructions = null; // Will be set by the Team class
 
     // Commenting out database operations for now
     // this.createNewPlayer(); // automatically adds player to database when player instance is created
@@ -61,6 +63,10 @@ class Player {
     } else {
       console.error("Position is out of bounds.");
     }
+  }
+
+  setTeam(team) {
+    this.team = team;
   }
 
   updateTeamInstructions(instructions) {

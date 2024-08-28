@@ -72,7 +72,7 @@ function testSetFormationPositions() {
   ];
 
   players.forEach((player) => team.addPlayer(player));
-  team.setFormationPositions();
+  team.setFormationPositions(field);
 
   logTestResult(
     "GK Position Set",

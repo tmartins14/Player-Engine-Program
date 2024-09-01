@@ -39,6 +39,7 @@ class Field {
 
   isWithinBounds(position) {
     // Check if a given position is within the field's boundaries
+
     const { x, y } = position;
     return (
       x >= -this.width / 2 &&

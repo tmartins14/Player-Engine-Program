@@ -1,11 +1,11 @@
 const Team = require("../components/Team");
-const Player = require("../components/Player");
 const Field = require("../components/Field");
+const Player = require("../components/Player");
 
+// Utility function to log test results
 let failedTests = 0;
 let totalTests = 0;
 
-// Utility function for logging test results
 function logTestResult(testName, condition) {
   totalTests++;
   if (!condition) {
@@ -14,178 +14,107 @@ function logTestResult(testName, condition) {
   }
 }
 
-// Test 1: Team Initialization
-function testTeamInitialization() {
-  console.log("Test 1: Team Initialization...");
+// Test 1: Create a team and add/remove players
+function testAddRemovePlayers() {
+  console.log("Test 1: Add/Remove Players...");
 
-  const team = new Team("Team A", "4-4-2", "attacking");
+  const team = new Team("FC Example", "4-4-2");
+  const player1 = new Player({ name: "Player 1", position: "GK" });
+  const player2 = new Player({ name: "Player 2", position: "ST1" });
 
-  logTestResult("Team Name", team.name === "Team A");
-  logTestResult("Team Formation", team.formation === "4-4-2");
-  logTestResult("Team Strategy", team.strategy === "attacking");
-  logTestResult(
-    "Players Array Initialized",
-    Array.isArray(team.players) && team.players.length === 0
-  );
+  team.addPlayer(player1);
+  logTestResult("Add Player 1", team.players.includes(player1));
+
+  team.addPlayer(player2);
+  logTestResult("Add Player 2", team.players.includes(player2));
+
+  team.removePlayer(player1);
+  logTestResult("Remove Player 1", !team.players.includes(player1));
+
+  team.removePlayer(player2);
+  logTestResult("Remove Player 2", !team.players.includes(player2));
 }
 
-// Test 2: Adding and Removing Players
-function testAddAndRemovePlayers() {
-  console.log("Test 2: Adding and Removing Players...");
+// Test 2: Set Formation Positions
+function testSetFormationPositions() {
+  console.log("Test 2: Set Formation Positions...");
 
-  const field = new Field(11);
-  const team = new Team("Team A", "4-4-2", { aggression: 70 });
-  const player1 = new Player({ name: "Player 1", position: "GK", field });
-  const player2 = new Player({ name: "Player 2", position: "RB", field });
+  const team = new Team("FC Example", "4-4-2");
+  const field = new Field(11); // 11v11 field
+  const player1 = new Player({ name: "Player 1", position: "GK" });
+  const player2 = new Player({ name: "Player 2", position: "ST1" });
 
   team.addPlayer(player1);
   team.addPlayer(player2);
 
-  logTestResult("Player Added", team.players.length === 2);
-  logTestResult("Player 1 in Team", team.players.includes(player1));
-  logTestResult("Player 2 in Team", team.players.includes(player2));
-
-  team.removePlayer(player1);
-  logTestResult("Player Removed", team.players.length === 1);
-  logTestResult("Player 1 Removed", !team.players.includes(player1));
-}
-
-// Test 3: Set Formation Positions
-function testSetFormationPositions() {
-  console.log("Test 3: Set Formation Positions...");
-
-  const field = new Field(11);
-  const team = new Team("Team A", "4-4-2", { aggression: 50 });
-
-  const players = [
-    new Player({ name: "Player 1", position: "GK", field }),
-    new Player({ name: "Player 2", position: "RB", field }),
-    new Player({ name: "Player 3", position: "CB1", field }),
-    new Player({ name: "Player 4", position: "CB2", field }),
-    new Player({ name: "Player 5", position: "LB", field }),
-    new Player({ name: "Player 6", position: "RM", field }),
-    new Player({ name: "Player 7", position: "CM1", field }),
-    new Player({ name: "Player 8", position: "CM2", field }),
-    new Player({ name: "Player 9", position: "LM", field }),
-    new Player({ name: "Player 10", position: "ST1", field }),
-    new Player({ name: "Player 11", position: "ST2", field }),
-  ];
-
-  players.forEach((player) => team.addPlayer(player));
   team.setFormationPositions(field);
 
   logTestResult(
-    "GK Position Set",
-    players[0].currentPosition.x === 0 &&
-      players[0].currentPosition.y === -field.length * 0.45
+    "Set Formation Position for Player 1 (GK)",
+    player1.currentPosition.x === 0 &&
+      player1.currentPosition.y === -0.45 * field.length
   );
-  logTestResult(
-    "RB Position Set",
-    players[1].currentPosition.x === -field.width * 0.3 &&
-      players[1].currentPosition.y === -field.length * 0.3
-  );
-}
-
-// Test 4: Assign Roles and Instructions
-function testAssignRolesAndInstructions() {
-  console.log("Test 4: Assign Roles and Instructions...");
-
-  const field = new Field(11);
-  const team = new Team("Team A", "4-4-2", {
-    aggression: 60,
-    passing: "direct",
-  });
-
-  const players = [
-    new Player({ name: "Player 1", position: "GK", field }),
-    new Player({ name: "Player 2", position: "RB", field }),
-    new Player({ name: "Player 3", position: "CB1", field }),
-    new Player({ name: "Player 4", position: "CB2", field }),
-    new Player({ name: "Player 5", position: "LB", field }),
-    new Player({ name: "Player 6", position: "RM", field }),
-    new Player({ name: "Player 7", position: "CM1", field }),
-    new Player({ name: "Player 8", position: "CM2", field }),
-    new Player({ name: "Player 9", position: "LM", field }),
-    new Player({ name: "Player 10", position: "ST1", field }),
-    new Player({ name: "Player 11", position: "ST2", field }),
-  ];
-
-  players.forEach((player) => team.addPlayer(player));
-  team.assignRolesAndInstructions();
 
   logTestResult(
-    "Player 1 Role Assigned",
-    players[0].teamInstructions.role === "defender"
-  );
-  logTestResult(
-    "Player 6 Role Assigned",
-    players[5].teamInstructions.role === "midfielder"
-  );
-  logTestResult(
-    "Player 10 Role Assigned",
-    players[9].teamInstructions.role === "attacker"
-  );
-  logTestResult(
-    "Player 10 Passing Strategy",
-    players[9].teamInstructions.passingStrategy === "direct"
+    "Set Formation Position for Player 2 (ST1)",
+    player2.currentPosition.x === -0.1 * field.width &&
+      player2.currentPosition.y === 0.3 * field.length
   );
 }
 
-// Test 5: Update Strategy
-function testUpdateStrategy() {
-  console.log("Test 5: Update Strategy...");
+// Test 3: Select Style of Play
+function testSelectStyleOfPlay() {
+  console.log("Test 3: Select Style of Play...");
 
-  const field = new Field(11);
-  const team = new Team("Team A", "4-4-2", {
-    aggression: 50,
-    passing: "possession",
-  });
+  const team = new Team("FC Example", "4-4-2");
 
-  const players = [
-    new Player({ name: "Player 1", position: "GK", field }),
-    new Player({ name: "Player 2", position: "RB", field }),
-    new Player({ name: "Player 3", position: "CB1", field }),
-    new Player({ name: "Player 4", position: "CB2", field }),
-    new Player({ name: "Player 5", position: "LB", field }),
-    new Player({ name: "Player 6", position: "RM", field }),
-    new Player({ name: "Player 7", position: "CM1", field }),
-    new Player({ name: "Player 8", position: "CM2", field }),
-    new Player({ name: "Player 9", position: "LM", field }),
-    new Player({ name: "Player 10", position: "ST1", field }),
-    new Player({ name: "Player 11", position: "ST2", field }),
-  ];
-
-  players.forEach((player) => team.addPlayer(player));
-  team.assignRolesAndInstructions();
-
-  team.updateStrategy({ aggression: 80, passing: "direct" });
-  team.assignRolesAndInstructions();
-
-  logTestResult("Aggression Updated", team.strategy.aggression === 80);
-  logTestResult("Passing Strategy Updated", team.strategy.passing === "direct");
+  team.selectStyleOfPlay("tiki-taka");
   logTestResult(
-    "Player 10 Updated Passing Strategy",
-    players[9].teamInstructions.passingStrategy === "direct"
+    "Select Tiki-Taka",
+    team.tactics.defensiveDepth === 60 && team.tactics.tempo === 70
+  );
+
+  team.selectStyleOfPlay("counter-attack");
+  logTestResult(
+    "Select Counter-Attack",
+    team.tactics.defensiveDepth === 30 && team.tactics.tempo === 80
+  );
+
+  team.selectStyleOfPlay("park-the-bus");
+  logTestResult(
+    "Select Park-the-Bus",
+    team.tactics.defensiveDepth === 20 && team.tactics.tempo === 30
+  );
+
+  team.selectStyleOfPlay("long-ball");
+  logTestResult(
+    "Select Long Ball",
+    team.tactics.passingStyle === 20 && team.tactics.crossingFrequency === 70
+  );
+
+  team.selectStyleOfPlay("high-press");
+  logTestResult(
+    "Select High Press",
+    team.tactics.pressingIntensity === 90 &&
+      team.tactics.lineOfConfrontation === 80
   );
 }
 
 // Run all tests
-function runTeamTests() {
+function runTests() {
   console.log("Starting Team Class Tests...");
 
   try {
-    testTeamInitialization();
-    testAddAndRemovePlayers();
+    testAddRemovePlayers();
     testSetFormationPositions();
-    testAssignRolesAndInstructions();
-    testUpdateStrategy();
+    testSelectStyleOfPlay();
 
     console.log(
-      `Team Class Tests Completed. ${failedTests}/${totalTests} tests failed.`
+      `\nTests Completed. ${failedTests}/${totalTests} tests failed.`
     );
   } catch (error) {
-    console.error("Error during team tests:", error);
+    console.error("Error during tests:", error);
   }
 }
 
-runTeamTests();
+runTests();

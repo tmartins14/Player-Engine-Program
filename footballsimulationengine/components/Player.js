@@ -1,14 +1,3 @@
-// Player class should have multiple states:
-// 1. Ball is in play
-//  a. Player has the ball
-//  b. Player does not have the ball and team has the ball
-//  c. Player does not have the ball and team does not have the ball
-
-// 2. Dead ball state
-//  a. Player has the ball
-//  b. Player does not have the ball and team has the ball
-//  c. Player does not have the ball and team does not have the ball
-
 const Field = require("./Field");
 
 class Player {
@@ -16,53 +5,65 @@ class Player {
     name,
     teamId,
     position,
-    rating,
-    pace,
-    shooting,
-    dribbling,
-    defending,
-    passing,
-    physical,
-    saving,
+    stats, // Consolidated player stats object
     fitness = 100,
     injured = false,
     hasBall = false,
     isOffside = false,
     field = new Field(11), // Default to an 11v11 field
     team = null,
-    teamInstructions = {}, // Added teamInstructions
+    teamInstructions = {}, // Team instructions passed by the Team class
   }) {
     this.name = name;
     this.teamId = teamId;
     this.position = position;
-    this.rating = rating;
-    this.pace = pace;
-    this.shooting = shooting;
-    this.dribbling = dribbling;
-    this.defending = defending;
-    this.passing = passing;
-    this.physical = physical;
-    this.saving = saving;
+    this.stats = {
+      rating: stats.rating,
+      pace: stats.pace,
+      shooting: stats.shooting,
+      dribbling: stats.dribbling,
+      defending: stats.defending,
+      passing: stats.passing,
+      physical: stats.physical,
+      saving: stats.saving,
+    };
     this.fitness = fitness;
     this.injured = injured;
     this.hasBall = hasBall;
     this.isOffside = isOffside;
-    this.currentPosition = null; // Will be set by the Team class
+    this.currentPosition = this.initializePosition(field); // Will be set by the Team class
     this.field = field; // The field on which the player is playing
     this.team = null; // Will be set by the Team class
     this.teamInstructions = null; // Will be set by the Team class
+  }
 
-    // Commenting out database operations for now
-    // this.createNewPlayer(); // automatically adds player to database when player instance is created
+  initializePosition(field) {
+    // Initialize player to a default position based on the field
+    // For simplicity, we can place the player at the center of their half
+    return { x: 0, y: -field.length / 4 }; // For example, halfway on their side of the field
   }
 
   // Method to set the player's position on the field
   setPosition(position) {
-    if (this.field.isWithinBounds(position)) {
+    if (position && this.field.isWithinBounds(position)) {
       this.currentPosition = position;
+      return true; // Indicate that the position was successfully set
     } else {
-      console.error("Position is out of bounds.");
+      console.error("Position is out of bounds or invalid.");
+      return false; // Indicate that the position was not set
     }
+  }
+
+  // Method to check if the player is offside
+  checkOffside(ball, lastDefenderPosition) {
+    if (
+      this.currentPosition.y > ball.position.y && // Player is ahead of the ball
+      this.currentPosition.y > lastDefenderPosition.y && // Player is ahead of the last defender
+      this.currentPosition.y > 0 // Player is in the opponent's half
+    ) {
+      return true;
+    }
+    return false;
   }
 
   setTeam(team) {
@@ -217,7 +218,7 @@ class Player {
     const fieldSize = Math.min(field.width, field.length);
     const vicinityPercentage = 0.01; // Vicinity covers 1% of the smaller field dimension
     const baseRadius = fieldSize * vicinityPercentage;
-    return baseRadius * (this.defending / 100); // Adjust based on defending attribute
+    return baseRadius * (this.stats.defending / 100); // Adjust based on defending stat
   }
 
   calculateDistance(position1, position2) {
@@ -269,11 +270,17 @@ class Player {
   }
 
   isWithinBoundaries() {
+    // Handle case where currentPosition might still be null
+    if (!this.currentPosition) {
+      console.error("Current position is not set.");
+      return false;
+    }
+
     return (
-      this.currentPosition.x >= 0 &&
-      this.currentPosition.x <= this.field.width &&
-      this.currentPosition.y >= 0 &&
-      this.currentPosition.y <= this.field.length
+      this.currentPosition.x >= -this.field.width / 2 &&
+      this.currentPosition.x <= this.field.width / 2 &&
+      this.currentPosition.y >= -this.field.length / 2 &&
+      this.currentPosition.y <= this.field.length / 2
     );
   }
 

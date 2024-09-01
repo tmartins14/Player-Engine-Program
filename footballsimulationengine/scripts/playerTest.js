@@ -1,6 +1,12 @@
 const Field = require("../components/Field");
 const Player = require("../components/Player");
 
+// const { logTestResult } = require("../utilities/testFunctions");
+const {
+  logClassMethods,
+  logObjectMethods,
+} = require("../utilities/classInspection");
+
 let failedTests = 0;
 let totalTests = 0;
 
@@ -20,22 +26,29 @@ function testSetPositionWithinBounds() {
     name: "John Doe",
     teamId: 1,
     position: "ST",
-    rating: 85,
-    pace: 70,
-    shooting: 60,
-    dribbling: 50,
-    defending: 80,
-    passing: 70,
-    physical: 75,
+    stats: {
+      rating: 85,
+      pace: 70,
+      shooting: 60,
+      dribbling: 50,
+      defending: 80,
+      passing: 70,
+      physical: 75,
+      saving: 0,
+    },
+    fitness: 100,
+    injured: false,
+    field: field,
   });
 
   const newPosition = { x: field.width / 2 - 1, y: field.length / 2 - 1 };
+
   player.setPosition(newPosition);
   logTestResult(
     "testSetPositionWithinBounds",
     player.currentPosition.x === newPosition.x &&
       player.currentPosition.y === newPosition.y &&
-      player.isWithinBoundaries(field)
+      player.isWithinBoundaries()
   );
 }
 
@@ -46,22 +59,26 @@ function testSetPositionOutsideBounds() {
     name: "John Doe",
     teamId: 1,
     position: "ST",
-    rating: 85,
-    pace: 70,
-    shooting: 60,
-    dribbling: 50,
-    defending: 80,
-    passing: 70,
-    physical: 75,
+    stats: {
+      rating: 85,
+      pace: 70,
+      shooting: 60,
+      dribbling: 50,
+      defending: 80,
+      passing: 70,
+      physical: 75,
+      saving: 0,
+    },
+    fitness: 100,
+    injured: false,
+    field: field,
   });
 
   const newPosition = { x: field.width / 2 + 10, y: field.length / 2 + 10 };
-  player.setPosition(newPosition);
+
   logTestResult(
     "testSetPositionOutsideBounds",
-    player.currentPosition.x === newPosition.x &&
-      player.currentPosition.y === newPosition.y &&
-      !player.isWithinBoundaries(field)
+    player.setPosition(newPosition) === false
   );
 }
 
@@ -72,19 +89,25 @@ function testPerformDefensiveActionWithinVicinity() {
     name: "John Doe",
     teamId: 1,
     position: "CB",
-    rating: 85,
-    pace: 70,
-    shooting: 60,
-    dribbling: 50,
-    defending: 90, // High defending skill
-    passing: 70,
-    physical: 75,
+    stats: {
+      rating: 85,
+      pace: 70,
+      shooting: 60,
+      dribbling: 50,
+      defending: 90, // High defending skill
+      passing: 70,
+      physical: 75,
+      saving: 0,
+    },
+    fitness: 100,
+    injured: false,
+    field: field,
   });
 
   const ball = { position: { x: 0, y: 0 }, isShot: false, isLoose: true };
   const opponents = [{ currentPosition: { x: 2, y: 2 }, hasBall: true }];
 
-  const foul = player.performDefensiveAction(opponents, ball, field);
+  const foul = player.performDefensiveAction(opponents, ball);
   logTestResult("testPerformDefensiveActionWithinVicinity", !foul);
 }
 
@@ -95,19 +118,25 @@ function testPerformDefensiveActionOutsideVicinity() {
     name: "John Doe",
     teamId: 1,
     position: "CB",
-    rating: 85,
-    pace: 70,
-    shooting: 60,
-    dribbling: 50,
-    defending: 50, // Lower defending skill
-    passing: 70,
-    physical: 75,
+    stats: {
+      rating: 85,
+      pace: 70,
+      shooting: 60,
+      dribbling: 50,
+      defending: 50, // Lower defending skill
+      passing: 70,
+      physical: 75,
+      saving: 0,
+    },
+    fitness: 100,
+    injured: false,
+    field: field,
   });
 
   const ball = { position: { x: 50, y: 50 }, isShot: false, isLoose: true };
   const opponents = [{ currentPosition: { x: 50, y: 50 }, hasBall: true }];
 
-  const foul = player.performDefensiveAction(opponents, ball, field);
+  const foul = player.performDefensiveAction(opponents, ball);
   logTestResult("testPerformDefensiveActionOutsideVicinity", !foul);
 }
 
@@ -118,19 +147,29 @@ function testPlayerOffside() {
     name: "John Doe",
     teamId: 1,
     position: "ST",
-    rating: 85,
-    pace: 70,
-    shooting: 60,
-    dribbling: 50,
-    defending: 80,
-    passing: 70,
-    physical: 75,
+    stats: {
+      rating: 85,
+      pace: 70,
+      shooting: 60,
+      dribbling: 50,
+      defending: 80,
+      passing: 70,
+      physical: 75,
+      saving: 0,
+    },
+    fitness: 100,
+    injured: false,
+    field: field,
   });
 
-  const ball = { position: { x: -20, y: 0 }, isShot: false };
-  player.setPosition({ x: 10, y: 0 }); // Position ahead of the ball (offside)
+  const ball = { position: { x: -20, y: -1 }, isShot: false };
+  const lastDefenderPosition = { x: 0, y: 0 };
+  player.setPosition({ x: 0, y: 10 }); // Position ahead of the ball and last defender (offside)
 
-  logTestResult("testPlayerOffside", player.isOffside(ball));
+  logTestResult(
+    "testPlayerOffside",
+    player.checkOffside(ball, lastDefenderPosition)
+  );
 }
 
 // Test 6: Player Not Offside
@@ -140,26 +179,33 @@ function testPlayerNotOffside() {
     name: "John Doe",
     teamId: 1,
     position: "ST",
-    rating: 85,
-    pace: 70,
-    shooting: 60,
-    dribbling: 50,
-    defending: 80,
-    passing: 70,
-    physical: 75,
+    stats: {
+      rating: 85,
+      pace: 70,
+      shooting: 60,
+      dribbling: 50,
+      defending: 80,
+      passing: 70,
+      physical: 75,
+      saving: 0,
+    },
+    fitness: 100,
+    injured: false,
+    field: field,
   });
 
   const ball = { position: { x: 20, y: 0 }, isShot: false };
-  player.setPosition({ x: 10, y: 0 }); // Position behind the ball (not offside)
+  const lastDefenderPosition = { x: 30, y: 0 };
+  player.setPosition({ x: 10, y: 0 }); // Position behind the ball and last defender (not offside)
 
-  logTestResult("testPlayerNotOffside", !player.isOffside(ball));
+  logTestResult(
+    "testPlayerNotOffside",
+    !player.checkOffside(ball, lastDefenderPosition)
+  );
 }
 
 const runTests = async () => {
   try {
-    // Database sync is commented out since we're not testing database interactions
-    // await syncDatabase();
-
     testSetPositionWithinBounds();
     testSetPositionOutsideBounds();
     testPerformDefensiveActionWithinVicinity();

@@ -1,6 +1,18 @@
+/*
+ * Table of Contents:
+ * 1. Initialization and Setup
+ * 2. Team Instructions and Actions
+ * 3. Ball Handling and Shooting
+ * 4. Defensive Actions
+ * 5. Positioning and Movement
+ * 6. Competency Checks
+ * 7. Helper Methods
+ */
+
 const Field = require("./Field");
 
 class Player {
+  // 1. Initialization and Setup
   constructor({
     name,
     teamId,
@@ -43,7 +55,10 @@ class Player {
     return { x: 0, y: -field.length / 4 }; // For example, halfway on their side of the field
   }
 
-  // Method to set the player's position on the field
+  setTeam(team) {
+    this.team = team;
+  }
+
   setPosition(position) {
     if (position && this.field.isWithinBounds(position)) {
       this.currentPosition = position;
@@ -54,71 +69,62 @@ class Player {
     }
   }
 
-  // Method to check if the player is offside
-  checkOffside(ball, lastDefenderPosition) {
-    if (
-      this.currentPosition.y > ball.position.y && // Player is ahead of the ball
-      this.currentPosition.y > lastDefenderPosition.y && // Player is ahead of the last defender
-      this.currentPosition.y > 0 // Player is in the opponent's half
-    ) {
-      return true;
-    }
-    return false;
-  }
-
-  setTeam(team) {
-    this.team = team;
-  }
-
+  // 2. Team Instructions and Actions
   updateTeamInstructions(instructions) {
     this.teamInstructions = instructions;
   }
 
-  decideAction(ball, opponents) {
-    const { role, aggression, passingStrategy } = this.teamInstructions;
+  // Probably the most important method in this class.
+  decideAction(ball, opponents) {}
 
-    if (role === "attacker" && this.hasBall) {
-      this.shootOrPass(ball, passingStrategy);
-    } else if (role === "defender" && !this.hasBall) {
-      this.performDefensiveAction(opponents, ball);
-    } else if (role === "midfielder") {
-      this.midfielderAction(ball, opponents, aggression, passingStrategy);
-    } else {
-      this.defaultAction();
-    }
-  }
+  // Might be redundant depending on what decideAction becomes
+  shootOrPass(ball, passingStrategy) {}
 
-  shootOrPass(ball, passingStrategy) {
-    if (passingStrategy === "direct") {
-      this.shoot(ball);
-    } else if (passingStrategy === "possession") {
-      this.passBall();
-    }
-  }
-
-  midfielderAction(ball, opponents, aggression, passingStrategy) {
-    if (aggression > 50) {
-      this.performDefensiveAction(opponents, ball);
-    } else {
-      this.shootOrPass(ball, passingStrategy);
-    }
-  }
-
-  defaultAction() {
+  // Default action - hold position
+  holdPosition() {
     console.log(`${this.name} is holding position.`);
   }
 
-  shoot(ball) {
-    console.log(`${this.name} takes a shot!`);
+  // 3. Ball Handling and Shooting
+  shootBall(ball) {
     // Placeholder logic for shooting
   }
 
   passBall() {
-    console.log(`${this.name} makes a pass!`);
     // Placeholder logic for passing
   }
 
-  // Defensive Action Methods
+  dribbleBall(targetPosition) {
+    // Calculate the direction towards the target position
+    const direction = {
+      x: targetPosition.x - this.currentPosition.x,
+      y: targetPosition.y - this.currentPosition.y,
+    };
+
+    const magnitude = Math.sqrt(direction.x ** 2 + direction.y ** 2);
+
+    // Adjust the player's position towards the target position based on dribbling pace
+    const speed = this.stats.dribbling * 0.1; // Dribbling speed as a factor of dribbling stat
+
+    this.currentPosition.x += (direction.x / magnitude) * speed;
+    this.currentPosition.y += (direction.y / magnitude) * speed;
+
+    // Check if the player has reached the target position
+    const distanceToTarget = this.calculateDistance(
+      this.currentPosition,
+      targetPosition
+    );
+    if (distanceToTarget < speed) {
+      this.currentPosition = { ...targetPosition };
+      console.log(
+        `${this.name} has successfully dribbled to the target position.`
+      );
+    } else {
+      console.log(`${this.name} is dribbling towards the target position.`);
+    }
+  }
+
+  // 4. Defensive Actions
   performDefensiveAction(opponents, ball) {
     const vicinityRadius = this.calculateDefensiveVicinityRadius(this.field);
     const successProbability = 0.8; // Fixed probability of successfully completing an action
@@ -157,10 +163,11 @@ class Player {
   }
 
   intercept(ball) {
-    console.log(`${this.name} intercepts the ball!`);
     // Logic to perform interception
+    // Set playerState.HAS_BALL = true?
   }
 
+  // Will need updating to account for velocity of player
   canSlideTackle(opponents, ball) {
     const opponentWithBall = opponents.find((opponent) => opponent.hasBall);
     return opponentWithBall && this.isOpponentInVicinity(opponentWithBall, 1.0); // Full vicinity
@@ -171,25 +178,18 @@ class Player {
     return opponentWithBall && this.isOpponentInVicinity(opponentWithBall, 0.1); // 10% vicinity
   }
 
+  // Needs updating
   tackle(opponents, ball, isSlideTackle) {
     const foulProbability = 0.2; // 20% chance that a tackle results in a foul
     const isFoul = Math.random() < foulProbability;
 
     if (isFoul) {
-      console.log(
-        `${this.name} commits a foul during a ${
-          isSlideTackle ? "slide" : "standing"
-        } tackle!`
-      );
-      return true; // Indicate that a foul occurred
+      playerState.HAS_BALL = false;
+      ballState.DEAD = true;
+      // return true; // Indicate that a foul occurred
     } else {
-      console.log(
-        `${this.name} successfully performs a ${
-          isSlideTackle ? "slide" : "standing"
-        } tackle!`
-      );
-      // Logic for successful tackle
-      return false;
+      playerState.HAS_BALL = true;
+      ballState.IN_PLAY = true;
     }
   }
 
@@ -213,46 +213,7 @@ class Player {
     // Logic to perform clearance
   }
 
-  // Helper Methods
-  calculateDefensiveVicinityRadius(field) {
-    const fieldSize = Math.min(field.width, field.length);
-    const vicinityPercentage = 0.01; // Vicinity covers 1% of the smaller field dimension
-    const baseRadius = fieldSize * vicinityPercentage;
-    return baseRadius * (this.stats.defending / 100); // Adjust based on defending stat
-  }
-
-  calculateDistance(position1, position2) {
-    return Math.sqrt(
-      Math.pow(position2.x - position1.x, 2) +
-        Math.pow(position2.y - position1.y, 2)
-    );
-  }
-
-  isBallInPath(ball) {
-    // Placeholder for checking if the ball is in the player's path
-    return true;
-  }
-
-  isOpponentInVicinity(opponent, vicinityMultiplier) {
-    const opponentDistance = this.calculateDistance(
-      this.currentPosition,
-      opponent.currentPosition
-    );
-    const vicinityRadius = this.calculateDefensiveVicinityRadius(this.field); // Use field size
-    return opponentDistance <= vicinityRadius * vicinityMultiplier;
-  }
-
-  isInFrontOfGoal(ball) {
-    // Placeholder logic for checking if the player is in front of the goal relative to the ball
-    return true;
-  }
-
-  isNearGoal(ball) {
-    // Placeholder logic for checking if the player is near the goal
-    return true;
-  }
-
-  // Other methods
+  // 5. Positioning and Movement
   moveToFormationPosition() {
     if (this.formationPosition) {
       this.currentPosition = { ...this.formationPosition };
@@ -261,38 +222,29 @@ class Player {
 
   moveToOnsidePosition() {
     // Placeholder for moving the player to an onside position
+    if (this.isOffside) {
+      // Move the player to the last defender's position
+      this.currentPosition.y = -1; // Example: move behind the last defender
+    }
   }
 
   moveToWithinBoundaries() {
     if (!this.isWithinBoundaries()) {
-      // Placeholder for moving the player within the field boundaries
+      // Move the player within the field boundaries
+      if (this.currentPosition.x < -this.field.width / 2) {
+        this.currentPosition.x = -this.field.width / 2;
+      } else if (this.currentPosition.x > this.field.width / 2) {
+        this.currentPosition.x = this.field.width / 2;
+      }
+      if (this.currentPosition.y < -this.field.length / 2) {
+        this.currentPosition.y = -this.field.length / 2;
+      } else if (this.currentPosition.y > this.field.length / 2) {
+        this.currentPosition.y = this.field.length / 2;
+      }
     }
   }
 
-  isWithinBoundaries() {
-    // Handle case where currentPosition might still be null
-    if (!this.currentPosition) {
-      console.error("Current position is not set.");
-      return false;
-    }
-
-    return (
-      this.currentPosition.x >= -this.field.width / 2 &&
-      this.currentPosition.x <= this.field.width / 2 &&
-      this.currentPosition.y >= -this.field.length / 2 &&
-      this.currentPosition.y <= this.field.length / 2
-    );
-  }
-
-  isOffside(ball) {
-    // Simplified offside logic
-    return (
-      this.position === "attacker" &&
-      this.currentPosition.x > ball.position.x &&
-      !this.hasBall
-    );
-  }
-
+  // 6. Competency Checks
   enforceCompetencies(ball, team) {
     const ballState = ball.isInPlay ? BallState.IN_PLAY : BallState.DEAD;
     const playerState = this.hasBall
@@ -437,18 +389,69 @@ class Player {
       this.moveToWithinBoundaries();
     }
   }
+
+  // 7. Helper Methods
+  calculateDefensiveVicinityRadius(field) {
+    const fieldSize = Math.min(field.width, field.length);
+    const vicinityPercentage = 0.01; // Vicinity covers 1% of the smaller field dimension
+    const baseRadius = fieldSize * vicinityPercentage;
+    return baseRadius * (this.stats.defending / 100); // Adjust based on defending stat
+  }
+
+  calculateDistance(position1, position2) {
+    return Math.sqrt(
+      Math.pow(position2.x - position1.x, 2) +
+        Math.pow(position2.y - position1.y, 2)
+    );
+  }
+
+  isBallInPath(ball) {
+    // Placeholder for checking if the ball is in the player's path
+    return true;
+  }
+
+  isOpponentInVicinity(opponent, vicinityMultiplier) {
+    const opponentDistance = this.calculateDistance(
+      this.currentPosition,
+      opponent.currentPosition
+    );
+    const vicinityRadius = this.calculateDefensiveVicinityRadius(this.field); // Use field size
+    return opponentDistance <= vicinityRadius * vicinityMultiplier;
+  }
+
+  isInFrontOfGoal(ball) {
+    // Placeholder logic for checking if the player is in front of the goal relative to the ball
+    return true;
+  }
+
+  isNearGoal(ball) {
+    // Placeholder logic for checking if the player is near the goal
+    return true;
+  }
+
+  isWithinBoundaries() {
+    // Handle case where currentPosition might still be null
+    if (!this.currentPosition) {
+      console.error("Current position is not set.");
+      return false;
+    }
+
+    return (
+      this.currentPosition.x >= -this.field.width / 2 &&
+      this.currentPosition.x <= this.field.width / 2 &&
+      this.currentPosition.y >= -this.field.length / 2 &&
+      this.currentPosition.y <= this.field.length / 2
+    );
+  }
+
+  isOffside(ball) {
+    // Simplified offside logic
+    return (
+      this.position === "attacker" &&
+      this.currentPosition.x > ball.position.x &&
+      !this.hasBall
+    );
+  }
 }
-
-// Enum-like objects for ball and player states
-const BallState = {
-  IN_PLAY: "in_play",
-  DEAD: "dead",
-};
-
-const PlayerState = {
-  HAS_BALL: "has_ball",
-  TEAM_HAS_BALL: "team_has_ball",
-  OPPONENT_HAS_BALL: "opponent_has_ball",
-};
 
 module.exports = Player;

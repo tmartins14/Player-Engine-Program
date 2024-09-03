@@ -75,10 +75,117 @@ class Player {
   }
 
   // Probably the most important method in this class.
-  decideAction(ball, opponents) {}
+  decideAction(ball, opponents, teammates) {
+    // Step 1: Assess the Current Situation
+    const inShootingRange = this.isInShootingRange();
+    const underPressure = this.isUnderPressure(opponents);
+    const openSpace = this.findSpace(opponents);
+    const teammateInBetterPosition = this.findBestTeammateToPass(teammates);
+
+    // Step 2: Determine Possible Actions
+    let action;
+
+    if (inShootingRange && !underPressure) {
+      action = "shoot";
+    } else if (teammateInBetterPosition && !underPressure) {
+      action = "pass";
+    } else if (openSpace) {
+      action = "dribble";
+    } else {
+      action = "holdPosition";
+    }
+
+    // Step 3: Adjust Action Based on Team Tactics and Instructions
+    if (
+      this.teamInstructions.passingStrategy === "possession" &&
+      action !== "shoot"
+    ) {
+      action = "pass";
+    } else if (this.teamInstructions.dribblingTactic && action === "dribble") {
+      action = "dribble";
+    } else if (this.teamInstructions.shootingTactic && action === "shoot") {
+      action = "shoot";
+    }
+
+    // Step 4: Execute the Best Action
+    switch (action) {
+      case "shoot":
+        this.shootBall(ball);
+        break;
+      case "pass":
+        this.passBall(teammateInBetterPosition);
+        break;
+      case "dribble":
+        this.dribbleBall(ball, opponents, openSpace);
+        break;
+      default:
+        this.holdPosition();
+        break;
+    }
+  }
+
+  // Helper methods to assess the situation
+  isInShootingRange() {
+    // Determine if the player is in a good position to shoot
+    // E.g., within a certain distance of the opponent's goal
+    const goalDistance = this.calculateDistance(
+      this.currentPosition,
+      this.field.getOpponentGoalPosition()
+    );
+    return goalDistance < 20; // Example threshold for shooting range
+  }
+
+  isUnderPressure(opponents) {
+    // Determine if the player is under pressure from opponents
+    const pressureRadius = 5; // Example radius within which opponents are considered to apply pressure
+    return opponents.some(
+      (opponent) =>
+        this.calculateDistance(this.currentPosition, opponent.currentPosition) <
+        pressureRadius
+    );
+  }
+
+  findBestTeammateToPass(teammates) {
+    // Logic to find the best-positioned teammate to pass the ball
+    // Consider proximity, angle, and team instructions (e.g., passing strategy)
+    let bestTeammate = null;
+    let bestPosition = Number.MAX_SAFE_INTEGER;
+
+    teammates.forEach((teammate) => {
+      const distanceToTeammate = this.calculateDistance(
+        this.currentPosition,
+        teammate.currentPosition
+      );
+      if (
+        distanceToTeammate < bestPosition &&
+        this.hasClearPassingLane(teammate)
+      ) {
+        bestTeammate = teammate;
+        bestPosition = distanceToTeammate;
+      }
+    });
+
+    return bestTeammate;
+  }
+
+  hasClearPassingLane(teammate) {
+    // Logic to determine if there is a clear lane to pass to a teammate
+    // Could involve checking for opponents in the path
+    return !this.opponentInPath(teammate);
+  }
+
+  opponentInPath(teammate) {
+    // Placeholder for checking if an opponent is in the passing lane
+    return false;
+  }
+
+  dribbleBall(ball, opponents, space) {
+    // Logic for dribbling into space
+    this.moveTowardsTarget(space);
+  }
 
   // Might be redundant depending on what decideAction becomes
-  shootOrPass(ball, passingStrategy) {}
+  // shootOrPass(ball, passingStrategy) {}
 
   // Default action - hold position
   holdPosition() {
@@ -94,34 +201,162 @@ class Player {
     // Placeholder logic for passing
   }
 
-  dribbleBall(targetPosition) {
-    // Calculate the direction towards the target position
+  // 3. Ball Handling and Shooting
+  dribbleBall(ball, opponents) {
+    let targetPosition;
+
+    if (this.shouldDribbleIntoSpace(opponents)) {
+      targetPosition = this.findSpace(opponents);
+    } else if (this.shouldTakeOnDefender(opponents)) {
+      targetPosition = this.takeOnDefender(opponents);
+    } else if (this.shouldDribbleOutOfPress(opponents)) {
+      targetPosition = this.escapePress(opponents);
+    } else {
+      // Default fallback action (e.g., pass the ball or hold position)
+      this.passBall();
+      return;
+    }
+
+    this.moveTowardsTarget(targetPosition);
+  }
+
+  moveTowardsTarget(targetPosition) {
     const direction = {
       x: targetPosition.x - this.currentPosition.x,
       y: targetPosition.y - this.currentPosition.y,
     };
 
     const magnitude = Math.sqrt(direction.x ** 2 + direction.y ** 2);
-
-    // Adjust the player's position towards the target position based on dribbling pace
-    const speed = this.stats.dribbling * 0.1; // Dribbling speed as a factor of dribbling stat
+    const speed = this.stats.dribbling * 0.1; // Dribbling speed
 
     this.currentPosition.x += (direction.x / magnitude) * speed;
     this.currentPosition.y += (direction.y / magnitude) * speed;
 
-    // Check if the player has reached the target position
     const distanceToTarget = this.calculateDistance(
       this.currentPosition,
       targetPosition
     );
     if (distanceToTarget < speed) {
       this.currentPosition = { ...targetPosition };
-      console.log(
-        `${this.name} has successfully dribbled to the target position.`
-      );
+      console.log(`${this.name} has dribbled to the target position.`);
     } else {
       console.log(`${this.name} is dribbling towards the target position.`);
     }
+  }
+
+  // Additional logic for deciding when to dribble
+  shouldDribble(opponents) {
+    // Determine whether dribbling is the best option
+    return (
+      this.stats.dribbling > 50 &&
+      this.teamInstructions.dribble === "encouraged"
+    );
+  }
+
+  shouldDribbleIntoSpace(opponents) {
+    // Logic to decide if the player should dribble into open space
+    const space = this.findSpace();
+    return space && this.stats.pace > 60; // High pace players exploit space better
+  }
+
+  shouldTakeOnDefender(opponents) {
+    // Logic to decide if the player should take on a defender
+    const nearbyOpponent = this.findNearestOpponent(opponents);
+    return (
+      nearbyOpponent && this.stats.dribbling > nearbyOpponent.stats.defending
+    );
+  }
+
+  shouldDribbleOutOfPress(opponents) {
+    // Logic to decide if the player should dribble out of a press
+    const pressure = this.calculatePressure(opponents);
+    return pressure > 50;
+    // && this.stats.composure > 60; // High composure players can dribble under pressure
+  }
+
+  findSpace(opponents) {
+    const searchRadius = 20; // The radius within which to search for open space (can be adjusted)
+    const angleIncrement = 15; // How many degrees to increment per search step
+
+    let bestSpace = null;
+    let maxDistance = 0;
+
+    // Scan forward in a semicircle in front of the player
+    for (let angle = -90; angle <= 90; angle += angleIncrement) {
+      const radian = (angle * Math.PI) / 180;
+      const potentialSpace = {
+        x: this.currentPosition.x + searchRadius * Math.cos(radian),
+        y: this.currentPosition.y + searchRadius * Math.sin(radian),
+      };
+
+      if (
+        this.field.isWithinBounds(potentialSpace) &&
+        !this.isSpaceOccupied(potentialSpace, opponents)
+      ) {
+        const distance = this.calculateDistance(
+          this.currentPosition,
+          potentialSpace
+        );
+        if (distance > maxDistance) {
+          bestSpace = potentialSpace;
+          maxDistance = distance;
+        }
+      }
+    }
+
+    // Return the best space found, or the current position if no space is found
+    return bestSpace || this.currentPosition;
+  }
+
+  // Helper method to check if a given space is occupied by an opponent
+  isSpaceOccupied(position, opponents) {
+    const vicinityRadius = 2; // Define a radius to consider the space occupied
+
+    return opponents.some((opponent) => {
+      return (
+        this.calculateDistance(position, opponent.currentPosition) <
+        vicinityRadius
+      );
+    });
+  }
+
+  takeOnDefender(opponents) {
+    // Identify the nearest defender and decide on a dribbling move
+    const defender = this.findNearestOpponent(opponents);
+    const offset = 2; // Attempt to dribble around the defender
+    const targetPosition = {
+      x: defender.currentPosition.x + offset,
+      y: defender.currentPosition.y,
+    };
+    return this.field.isWithinBounds(targetPosition)
+      ? targetPosition
+      : this.currentPosition;
+  }
+
+  escapePress(opponents) {
+    // Dribble out of a press by moving to the least congested area
+    const escapeRoute = {
+      x: this.currentPosition.x,
+      y: this.currentPosition.y + 10,
+    }; // Placeholder logic
+    return this.field.isWithinBounds(escapeRoute)
+      ? escapeRoute
+      : this.currentPosition;
+  }
+
+  calculatePressure(opponents) {
+    // Evaluate how many opponents are close to the player
+    const vicinity = 5; // Vicinity range to consider for pressure
+    let pressure = 0;
+    opponents.forEach((opponent) => {
+      if (
+        this.calculateDistance(this.currentPosition, opponent.currentPosition) <
+        vicinity
+      ) {
+        pressure += 20; // Each opponent adds to the pressure
+      }
+    });
+    return pressure;
   }
 
   // 4. Defensive Actions

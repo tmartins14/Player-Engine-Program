@@ -1,119 +1,95 @@
-const Player = require("./Player");
 const Team = require("./Team");
-const Field = require("./Field");
 const Ball = require("./Ball");
+const Field = require("./Field");
 
 class Match {
-  constructor(homeTeam, awayTeam, field) {
+  constructor(homeTeam, awayTeam) {
     this.homeTeam = homeTeam;
     this.awayTeam = awayTeam;
-    this.field = field;
-    this.ball = new Ball(field);
-    this.timeElapsed = 0;
-    this.maxTime = 90; // Assume 90 minutes for a standard match
-    this.score = { home: 0, away: 0 };
+    this.field = new Field(11); // 11v11 field
+    this.ball = new Ball(this.field);
+    this.matchTime = 0; // Start time in minutes
+    this.maxTime = 90; // Match duration in minutes (standard)
+    this.homeScore = 0;
+    this.awayScore = 0;
+    this.isPlaying = false; // Indicates if the match is currently ongoing
   }
 
+  // Start the match
   startMatch() {
-    console.log(
-      `Match between ${this.homeTeam.name} and ${this.awayTeam.name} started!`
-    );
+    this.isPlaying = true;
+    this.kickOff();
 
-    this.resetMatchState();
-
-    while (this.timeElapsed < this.maxTime) {
-      this.simulateMinute();
-      this.timeElapsed += 1;
+    while (this.matchTime < this.maxTime) {
+      this.updateMatch(); // Simulate the match in increments
+      this.matchTime += 1; // Increment match time by 1 minute per loop iteration
     }
 
-    this.endMatch();
+    this.endMatch(); // Conclude the match after 90 minutes
   }
 
-  resetMatchState() {
-    this.timeElapsed = 0;
+  // Handle the kickoff
+  kickOff() {
+    console.log("Kickoff!");
     this.ball.resetBall();
-    this.homeTeam.setFormationPositions(this.field);
-    this.awayTeam.setFormationPositions(this.field);
+    this.possession(this.homeTeam); // Assuming home team starts with the ball
   }
 
-  simulateMinute() {
-    // Simulate events that happen in a minute
-    this.simulateBallMovement();
-    this.simulatePlayerActions(this.homeTeam);
-    this.simulatePlayerActions(this.awayTeam);
-    this.checkForGoals();
+  // Update match simulation per minute
+  updateMatch() {
+    // Simulate actions for each team
+    this.simulateTeamActions(this.homeTeam, this.awayTeam);
+    this.simulateTeamActions(this.awayTeam, this.homeTeam);
+
+    // Check for goals or significant events
+    this.checkForGoal();
   }
 
-  simulateBallMovement() {
-    // Move the ball according to its current velocity
-    this.ball.updatePosition(1); // Update position over 1 minute
-    this.checkBallOutOfBounds();
-  }
-
-  simulatePlayerActions(team) {
+  // Simulate actions for each team
+  simulateTeamActions(team, opponentTeam) {
     team.players.forEach((player) => {
-      player.decideAction(this.ball, this.getOpposingTeam(team).players);
+      player.decideAction(this.ball, opponentTeam.players, team.players);
     });
   }
 
-  getOpposingTeam(team) {
-    return team === this.homeTeam ? this.awayTeam : this.homeTeam;
-  }
+  // Check if a goal is scored
+  checkForGoal() {
+    const goalPosition = this.field.getOpponentGoalPosition();
 
-  checkForGoals() {
-    // Check if the ball has crossed into the goal area
-    if (this.isGoalScored(this.ball.position)) {
-      const scoringTeam =
-        this.ball.position.y > 0 ? this.homeTeam : this.awayTeam;
-      this.scoreGoal(scoringTeam);
-      this.resetAfterGoal(scoringTeam);
-    }
-  }
-
-  isGoalScored(position) {
-    const goalWidth = this.field.goalWidth / 2;
-    return (
-      Math.abs(position.x) <= goalWidth &&
-      (position.y >= this.field.length / 2 ||
-        position.y <= -this.field.length / 2)
-    );
-  }
-
-  scoreGoal(team) {
-    if (team === this.homeTeam) {
-      this.score.home += 1;
-    } else {
-      this.score.away += 1;
-    }
-    console.log(`Goal scored by ${team.name}!`);
-  }
-
-  resetAfterGoal(scoringTeam) {
-    this.ball.resetBall();
-    this.homeTeam.setFormationPositions(this.field);
-    this.awayTeam.setFormationPositions(this.field);
-  }
-
-  checkBallOutOfBounds() {
-    if (!this.field.isWithinBounds(this.ball.position)) {
-      if (
-        this.ball.position.y > this.field.length / 2 ||
-        this.ball.position.y < -this.field.length / 2
-      ) {
-        this.ball.resetForGoalKick(
-          this.getOpposingTeam(this.ball.carrier.team).name
+    if (this.ball.position.y >= goalPosition.y && this.ball.isShot) {
+      // Goal scored logic
+      if (this.ball.position.y > 0) {
+        this.awayScore += 1;
+        console.log(
+          `Goal for ${this.awayTeam.name}! Score: ${this.homeScore} - ${this.awayScore}`
         );
       } else {
-        // Assuming it's a throw-in for simplicity
-        this.ball.resetForThrowIn(this.ball.position);
+        this.homeScore += 1;
+        console.log(
+          `Goal for ${this.homeTeam.name}! Score: ${this.homeScore} - ${this.awayScore}`
+        );
       }
+      this.ball.resetBall(); // Reset ball for kickoff
     }
   }
 
+  // End the match
   endMatch() {
+    this.isPlaying = false;
+    console.log("Full Time!");
     console.log(
-      `Match ended! Final Score: ${this.homeTeam.name} ${this.score.home} - ${this.awayTeam.name} ${this.score.away}`
+      `Final Score: ${this.homeTeam.name} ${this.homeScore} - ${this.awayScore} ${this.awayTeam.name}`
     );
+  }
+
+  // Manage ball possession
+  possession(team) {
+    // Randomly assign ball possession to one of the players in the team
+    const playerWithBall =
+      team.players[Math.floor(Math.random() * team.players.length)];
+    playerWithBall.hasBall = true;
+    this.ball.changeCarrier(playerWithBall);
+    console.log(`${playerWithBall.name} of ${team.name} has the ball.`);
   }
 }
 

@@ -218,6 +218,16 @@ class Field {
     // Return the coordinates for the center spot
     return this.getCenterPosition();
   }
+
+  getOpponentGoalPosition(team) {
+    // If the team is the home team, the opponent's goal is at the top of the field
+    if (team === "home") {
+      return { x: 0, y: this.length / 2 }; // Opponent's goal at the top center
+    } else {
+      // If the team is the away team, the opponent's goal is at the bottom of the field
+      return { x: 0, y: -this.length / 2 }; // Opponent's goal at the bottom center
+    }
+  }
 }
 
 module.exports = Field;

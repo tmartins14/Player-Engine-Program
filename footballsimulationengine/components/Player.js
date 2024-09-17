@@ -87,9 +87,9 @@ class Player {
       this.actionHoldPosition();
     }
   }
-
   decideActionWithBall(ball, opponents) {
-    const { passingStyle, tempo } = this.teamInstructions;
+    const { passingStyle = "default", tempo = "normal" } =
+      this.teamInstructions || {};
 
     if (this.shouldShoot(ball)) {
       this.actionShoot(ball);
@@ -101,7 +101,7 @@ class Player {
   }
 
   decideActionWithoutBallInPossession() {
-    const { offensiveRuns } = this.teamInstructions;
+    const { offensiveRuns = "normal" } = this.teamInstructions || {};
 
     if (this.shouldMakeRun()) {
       this.actionMakeRun();
@@ -111,7 +111,7 @@ class Player {
   }
 
   decideActionWithoutBallOutOfPossession(ball, opponents) {
-    const { pressingIntensity } = this.teamInstructions;
+    const { pressingIntensity = "normal" } = this.teamInstructions || {};
 
     if (this.shouldPress(ball)) {
       this.actionPress(ball);
@@ -121,7 +121,7 @@ class Player {
   }
 
   decideActionDuringDeadBall() {
-    const { setPieceFocus } = this.teamInstructions;
+    const { setPieceFocus = "balanced" } = this.teamInstructions || {};
 
     if (this.isAttackingSetPiece()) {
       this.actionMoveToAttackingSetPiecePosition();
@@ -130,7 +130,131 @@ class Player {
     }
   }
 
-  // 4. Ball Handling and Shooting
+  //4. "Should" Methods
+  shouldShoot(ball) {
+    const { shootingPreference = "balanced" } = this.teamInstructions || {};
+
+    // Use the player's team to find the opponent's goal position
+    const opponentGoalPosition = this.field.getOpponentGoalPosition(
+      this.team.name
+    );
+
+    const distanceToGoal = this.calculateDistance(
+      this.currentPosition,
+      opponentGoalPosition
+    );
+
+    // Decision logic based on team instructions and player's shooting stats
+    if (shootingPreference === "aggressive" && distanceToGoal < 25) {
+      return true;
+    } else if (
+      shootingPreference === "balanced" &&
+      distanceToGoal < 20 &&
+      this.stats.shooting > 70
+    ) {
+      return true;
+    } else if (
+      shootingPreference === "conservative" &&
+      distanceToGoal < 15 &&
+      this.stats.shooting > 80
+    ) {
+      return true;
+    }
+
+    return false;
+  }
+
+  shouldPass(ball, opponents) {
+    const { passingStyle = "short" } = this.teamInstructions || {};
+
+    const nearestTeammate = this.findBestTeammateToPass(this.team.players);
+    if (!nearestTeammate) return false;
+
+    const distanceToTeammate = this.calculateDistance(
+      this.currentPosition,
+      nearestTeammate.currentPosition
+    );
+
+    // Decision logic based on team instructions and player's passing stats
+    if (
+      passingStyle === "short" &&
+      distanceToTeammate < 20 &&
+      this.stats.passing > 60
+    ) {
+      return true;
+    } else if (
+      passingStyle === "direct" &&
+      distanceToTeammate < 40 &&
+      this.stats.passing > 70
+    ) {
+      return true;
+    } else if (
+      passingStyle === "long" &&
+      distanceToTeammate < 50 &&
+      this.stats.passing > 80
+    ) {
+      return true;
+    }
+
+    return false;
+  }
+
+  shouldMakeRun() {
+    const { offensiveRuns = "balanced" } = this.teamInstructions || {};
+
+    // Decision logic based on team instructions and player's pace and positioning
+    if (offensiveRuns === "aggressive" && this.stats.pace > 70) {
+      return true;
+    } else if (
+      offensiveRuns === "balanced" &&
+      this.stats.pace > 60 &&
+      !this.isOffside
+    ) {
+      return true;
+    } else if (
+      offensiveRuns === "conservative" &&
+      this.stats.pace > 50 &&
+      this.isInFormationPosition()
+    ) {
+      return true;
+    }
+
+    return false;
+  }
+
+  shouldPress(ball) {
+    const { pressingIntensity = "medium" } = this.teamInstructions || {};
+
+    const distanceToBall = this.calculateDistance(
+      this.currentPosition,
+      ball.position
+    );
+
+    // Decision logic based on team instructions and player's defending skill
+    if (
+      pressingIntensity === "high" &&
+      distanceToBall < 15 &&
+      this.stats.defending > 70
+    ) {
+      return true;
+    } else if (
+      pressingIntensity === "medium" &&
+      distanceToBall < 20 &&
+      this.stats.defending > 60
+    ) {
+      return true;
+    } else if (
+      pressingIntensity === "low" &&
+      distanceToBall < 25 &&
+      this.stats.defending > 50
+    ) {
+      return true;
+    }
+
+    return false;
+  }
+
+  // 5. Ball Handling and Shooting
   actionShoot(ball) {
     console.log(`${this.name} shoots the ball!`);
   }
@@ -222,7 +346,7 @@ class Player {
     console.log(`${this.name} is holding position.`);
   }
 
-  // 5. Defensive Actions
+  // 6. Defensive Actions
   actionPerformDefensiveAction(opponents, ball) {
     const vicinityRadius = this.calculateDefensiveVicinityRadius(this.field);
     const ballDistance = this.calculateDistance(
@@ -273,7 +397,7 @@ class Player {
     console.log(`${this.name} clears the ball.`);
   }
 
-  // 6. Positioning and Movement
+  // 7. Positioning and Movement
   actionMoveToWithinBoundaries() {
     if (!this.isWithinBoundaries()) {
       if (this.currentPosition.x < -this.field.width / 2) {
@@ -289,7 +413,7 @@ class Player {
     }
   }
 
-  // 7. Competency Checks
+  // 8. Competency Checks
   enforceCompetencies(ball, team) {
     const ballState = ball.isInPlay ? BallState.IN_PLAY : BallState.DEAD;
     const playerState = this.hasBall
@@ -435,7 +559,7 @@ class Player {
     }
   }
 
-  // 8. Helper Methods
+  // 9. Helper Methods
   calculateDefensiveVicinityRadius(field) {
     const fieldSize = Math.min(field.width, field.length);
     const vicinityPercentage = 0.01; // Vicinity covers 1% of the smaller field dimension

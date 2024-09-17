@@ -1,381 +1,50 @@
-const Player = require("../components/Player");
-const Team = require("../components/Team");
-const Field = require("../components/Field");
 const Match = require("../components/Match");
+const Team = require("../components/Team");
+const Player = require("../components/Player");
+const Field = require("../components/Field");
+const Ball = require("../components/Ball");
 
-// Create a field for the match
-const field = new Field(11);
+// Define the game length in minutes
+const GAME_LENGTH = 2;
 
-// Create players for the home team
-const homePlayers = [
-  new Player({
-    name: "Home GK",
-    teamId: 1,
-    position: "GK",
-    stats: {
-      rating: 85,
-      pace: 40,
-      shooting: 20,
-      dribbling: 30,
-      defending: 90,
-      passing: 50,
-      physical: 60,
-      saving: 90,
-    },
-    field,
-  }),
-  new Player({
-    name: "Home RB",
-    teamId: 1,
-    position: "RB",
-    stats: {
-      rating: 80,
-      pace: 70,
-      shooting: 50,
-      dribbling: 60,
-      defending: 80,
-      passing: 60,
-      physical: 70,
-      saving: 20,
-    },
-    field,
-  }),
-  new Player({
-    name: "Home CB1",
-    teamId: 1,
-    position: "CB1",
-    stats: {
-      rating: 83,
-      pace: 65,
-      shooting: 50,
-      dribbling: 55,
-      defending: 85,
-      passing: 55,
-      physical: 80,
-      saving: 20,
-    },
-    field,
-  }),
-  new Player({
-    name: "Home CB2",
-    teamId: 1,
-    position: "CB2",
-    stats: {
-      rating: 82,
-      pace: 65,
-      shooting: 50,
-      dribbling: 55,
-      defending: 85,
-      passing: 55,
-      physical: 80,
-      saving: 20,
-    },
-    field,
-  }),
-  new Player({
-    name: "Home LB",
-    teamId: 1,
-    position: "LB",
-    stats: {
-      rating: 80,
-      pace: 70,
-      shooting: 50,
-      dribbling: 60,
-      defending: 80,
-      passing: 60,
-      physical: 70,
-      saving: 20,
-    },
-    field,
-  }),
-  new Player({
-    name: "Home RM",
-    teamId: 1,
-    position: "RM",
-    stats: {
-      rating: 81,
-      pace: 75,
-      shooting: 65,
-      dribbling: 70,
-      defending: 60,
-      passing: 75,
-      physical: 70,
-      saving: 20,
-    },
-    field,
-  }),
-  new Player({
-    name: "Home CM1",
-    teamId: 1,
-    position: "CM1",
-    stats: {
-      rating: 84,
-      pace: 70,
-      shooting: 70,
-      dribbling: 75,
-      defending: 70,
-      passing: 80,
-      physical: 75,
-      saving: 20,
-    },
-    field,
-  }),
-  new Player({
-    name: "Home CM2",
-    teamId: 1,
-    position: "CM2",
-    stats: {
-      rating: 84,
-      pace: 70,
-      shooting: 70,
-      dribbling: 75,
-      defending: 70,
-      passing: 80,
-      physical: 75,
-      saving: 20,
-    },
-    field,
-  }),
-  new Player({
-    name: "Home LM",
-    teamId: 1,
-    position: "LM",
-    stats: {
-      rating: 81,
-      pace: 75,
-      shooting: 65,
-      dribbling: 70,
-      defending: 60,
-      passing: 75,
-      physical: 70,
-      saving: 20,
-    },
-    field,
-  }),
-  new Player({
-    name: "Home ST1",
-    teamId: 1,
-    position: "ST1",
-    stats: {
-      rating: 87,
-      pace: 80,
-      shooting: 85,
-      dribbling: 85,
-      defending: 40,
-      passing: 70,
-      physical: 80,
-      saving: 20,
-    },
-    field,
-  }),
-  new Player({
-    name: "Home ST2",
-    teamId: 1,
-    position: "ST2",
-    stats: {
-      rating: 87,
-      pace: 80,
-      shooting: 85,
-      dribbling: 85,
-      defending: 40,
-      passing: 70,
-      physical: 80,
-      saving: 20,
-    },
-    field,
-  }),
-];
+// Create teams
+const createTeam = (name, formation) => {
+  const team = new Team(name, formation);
+  for (let i = 0; i < 11; i++) {
+    const player = new Player({
+      name: `${name} Player ${i + 1}`,
+      teamId: team.name,
+      position: `Player${i + 1}`,
+      stats: {
+        rating: 75,
+        pace: 70,
+        shooting: 60,
+        dribbling: 65,
+        defending: 70,
+        passing: 75,
+        physical: 70,
+        saving: 50,
+      },
+      fitness: 100,
+      injured: false,
+      field: new Field(11),
+    });
+    team.addPlayer(player);
+  }
+  return team;
+};
 
-// Create players for the away team
-const awayPlayers = [
-  new Player({
-    name: "Away GK",
-    teamId: 2,
-    position: "GK",
-    stats: {
-      rating: 85,
-      pace: 40,
-      shooting: 20,
-      dribbling: 30,
-      defending: 90,
-      passing: 50,
-      physical: 60,
-      saving: 90,
-    },
-    field,
-  }),
-  new Player({
-    name: "Away RB",
-    teamId: 2,
-    position: "RB",
-    stats: {
-      rating: 80,
-      pace: 70,
-      shooting: 50,
-      dribbling: 60,
-      defending: 80,
-      passing: 60,
-      physical: 70,
-      saving: 20,
-    },
-    field,
-  }),
-  new Player({
-    name: "Away CB1",
-    teamId: 2,
-    position: "CB1",
-    stats: {
-      rating: 83,
-      pace: 65,
-      shooting: 50,
-      dribbling: 55,
-      defending: 85,
-      passing: 55,
-      physical: 80,
-      saving: 20,
-    },
-    field,
-  }),
-  new Player({
-    name: "Away CB2",
-    teamId: 2,
-    position: "CB2",
-    stats: {
-      rating: 82,
-      pace: 65,
-      shooting: 50,
-      dribbling: 55,
-      defending: 85,
-      passing: 55,
-      physical: 80,
-      saving: 20,
-    },
-    field,
-  }),
-  new Player({
-    name: "Away LB",
-    teamId: 2,
-    position: "LB",
-    stats: {
-      rating: 80,
-      pace: 70,
-      shooting: 50,
-      dribbling: 60,
-      defending: 80,
-      passing: 60,
-      physical: 70,
-      saving: 20,
-    },
-    field,
-  }),
-  new Player({
-    name: "Away RM",
-    teamId: 2,
-    position: "RM",
-    stats: {
-      rating: 81,
-      pace: 75,
-      shooting: 65,
-      dribbling: 70,
-      defending: 60,
-      passing: 75,
-      physical: 70,
-      saving: 20,
-    },
-    field,
-  }),
-  new Player({
-    name: "Away CM1",
-    teamId: 2,
-    position: "CM1",
-    stats: {
-      rating: 84,
-      pace: 70,
-      shooting: 70,
-      dribbling: 75,
-      defending: 70,
-      passing: 80,
-      physical: 75,
-      saving: 20,
-    },
-    field,
-  }),
-  new Player({
-    name: "Away CM2",
-    teamId: 2,
-    position: "CM2",
-    stats: {
-      rating: 84,
-      pace: 70,
-      shooting: 70,
-      dribbling: 75,
-      defending: 70,
-      passing: 80,
-      physical: 75,
-      saving: 20,
-    },
-    field,
-  }),
-  new Player({
-    name: "Away LM",
-    teamId: 2,
-    position: "LM",
-    stats: {
-      rating: 81,
-      pace: 75,
-      shooting: 65,
-      dribbling: 70,
-      defending: 60,
-      passing: 75,
-      physical: 70,
-      saving: 20,
-    },
-    field,
-  }),
-  new Player({
-    name: "Away ST1",
-    teamId: 2,
-    position: "ST1",
-    stats: {
-      rating: 87,
-      pace: 80,
-      shooting: 85,
-      dribbling: 85,
-      defending: 40,
-      passing: 70,
-      physical: 80,
-      saving: 20,
-    },
-    field,
-  }),
-  new Player({
-    name: "Away ST2",
-    teamId: 2,
-    position: "ST2",
-    stats: {
-      rating: 87,
-      pace: 80,
-      shooting: 85,
-      dribbling: 85,
-      defending: 40,
-      passing: 70,
-      physical: 80,
-      saving: 20,
-    },
-    field,
-  }),
-];
+// Create home and away teams
+const homeTeam = createTeam("Home Team", "4-4-2");
+const awayTeam = createTeam("Away Team", "4-4-2");
 
-// Create the teams
-const homeTeam = new Team("Home FC", "4-4-2");
-const awayTeam = new Team("Away FC", "4-4-2");
+// Create the match instance
+const match = new Match(homeTeam, awayTeam);
+match.maxTime = GAME_LENGTH; // Set the match length to the defined game length
 
-// Add players to the teams
-homePlayers.forEach((player) => homeTeam.addPlayer(player));
-awayPlayers.forEach((player) => awayTeam.addPlayer(player));
+// Start the match and simulate it
+const matchPositions = match.startMatch();
 
-// Create the match
-const match = new Match(homeTeam, awayTeam, field);
-
-// Start the match
-match.startMatch();
+// Output the simulation results
+console.log("Match Simulation Positions:");
+console.log(matchPositions);

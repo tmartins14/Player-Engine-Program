@@ -8,31 +8,37 @@ class Match {
     this.awayTeam = awayTeam;
     this.field = new Field(11); // 11v11 field
     this.ball = new Ball(this.field);
-    this.matchTime = 0; // Start time in minutes
-    this.maxTime = 90; // Match duration in minutes (standard)
+    this.matchTime = 0; // Start time in seconds
+    this.maxTime = 2 * 60; // Match duration in seconds (2 minutes)
     this.homeScore = 0;
     this.awayScore = 0;
     this.isPlaying = false; // Indicates if the match is currently ongoing
-    this.positions = []; // Store positions for each time step
   }
 
   // Start the match
-  startMatch() {
+  startMatch(onUpdatePositions) {
     this.isPlaying = true;
     this.kickOff();
 
-    while (this.matchTime < this.maxTime) {
-      this.updateMatch(); // Simulate the match in increments
-      this.matchTime += 1; // Increment match time by 1 minute per loop iteration
+    // Use setInterval to simulate the match frame by frame
+    const matchInterval = setInterval(() => {
+      if (this.matchTime >= this.maxTime || !this.isPlaying) {
+        clearInterval(matchInterval); // Stop the match after maxTime
+        this.endMatch();
+        return;
+      }
 
-      // Record the positions at this time step
+      this.updateMatch(1); // Simulate the match in 1-second increments
+      this.matchTime += 1; // Increment match time by 1 second
+
+      // Get current positions
       const currentPositions = this.getCurrentPositions();
-      this.positions.push(currentPositions);
-      console.log(currentPosition);
-    }
 
-    this.endMatch(); // Conclude the match after 90 minutes
-    return this.positions; // Return all recorded positions
+      // Execute the callback with the current positions
+      if (typeof onUpdatePositions === "function") {
+        onUpdatePositions(currentPositions);
+      }
+    }, 1000); // Update every 1 second (1000 milliseconds)
   }
 
   // Handle the kickoff
@@ -42,14 +48,14 @@ class Match {
     this.possession(this.homeTeam); // Assuming home team starts with the ball
   }
 
-  // Update match simulation per minute
-  updateMatch() {
+  // Update match simulation per second
+  updateMatch(timeDelta) {
     // Simulate actions for each team
     this.simulateTeamActions(this.homeTeam, this.awayTeam);
     this.simulateTeamActions(this.awayTeam, this.homeTeam);
 
     // Update ball's position
-    this.ball.updatePosition(1); // Assume a time delta of 1 for simplicity
+    this.ball.updatePosition(timeDelta); // Use the given timeDelta for updating
 
     // Check for goals or significant events
     this.checkForGoal();

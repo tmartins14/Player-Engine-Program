@@ -44,8 +44,40 @@ class Match {
   // Handle the kickoff
   kickOff() {
     console.log("Kickoff!");
+
+    // Reset the ball to the center of the field
     this.ball.resetBall();
-    this.possession(this.homeTeam); // Assuming home team starts with the ball
+
+    // Assuming the home team starts with the ball
+    const playerWithBall = this.homeTeam.players.find(
+      (player) => player.position === "ST1" || player.position === "ST2"
+    );
+
+    if (!playerWithBall) {
+      console.error("No player found to kick off.");
+      return;
+    }
+
+    playerWithBall.hasBall = true; // Set the player to have the ball
+    this.ball.changeCarrier(playerWithBall); // Change ball carrier to the kickoff player
+
+    // Find the nearest teammate to pass the ball to
+    const targetTeammate = playerWithBall.findBestTeammateToPass(
+      this.homeTeam.players,
+      this.awayTeam.players
+    );
+
+    if (targetTeammate) {
+      // Player with the ball attempts to pass to the nearest teammate
+      playerWithBall.actionPass(this.ball, targetTeammate);
+      console.log(
+        `${playerWithBall.name} passes to ${targetTeammate.name} at kickoff.`
+      );
+    } else {
+      // If no teammate found, the player holds the ball or performs a fallback action
+      playerWithBall.actionHoldPosition();
+      console.log(`${playerWithBall.name} is holding the ball after kickoff.`);
+    }
   }
 
   // Update match simulation per second
@@ -56,6 +88,9 @@ class Match {
 
     // Update ball's position
     this.ball.updatePosition(timeDelta); // Use the given timeDelta for updating
+
+    // Check if the ball has gone out of bounds
+    this.checkForOutOfBounds();
 
     // Check for goals or significant events
     this.checkForGoal();
@@ -85,8 +120,91 @@ class Match {
           `Goal for ${this.homeTeam.name}! Score: ${this.homeScore} - ${this.awayScore}`
         );
       }
-      this.ball.resetBall(); // Reset ball for kickoff
+      this.kickOff(); // Reset ball for kickoff
     }
+  }
+
+  // Check if the ball goes out of bounds
+  checkForOutOfBounds() {
+    const { x, y } = this.ball.position;
+
+    // Out on the sides for throw-ins
+    if (x < -this.field.width / 2 || x > this.field.width / 2) {
+      console.log("Ball went out for a throw-in.");
+      this.resetForThrowIn();
+    }
+
+    // Out on the goal lines for corner kicks or goal kicks
+    if (y < -this.field.length / 2 || y > this.field.length / 2) {
+      if (this.ball.isShot) {
+        // Ball went out from a shot, it could be a goal kick
+        console.log("Ball went out for a goal kick.");
+        this.resetForGoalKick();
+      } else {
+        // Otherwise, it could be a corner kick
+        console.log("Ball went out for a corner kick.");
+        this.resetForCornerKick();
+      }
+    }
+  }
+
+  // Reset the ball for a throw-in
+  resetForThrowIn() {
+    const team = this.ball.position.x > 0 ? this.awayTeam : this.homeTeam;
+    const throwInPosition = {
+      x: this.ball.position.x,
+      y: this.field.length / 2,
+    };
+
+    this.ball.resetForThrowIn(throwInPosition);
+    this.possession(team);
+  }
+
+  // Reset the ball for a goal kick and have a player take the goal kick
+  resetForGoalKick() {
+    const team = this.ball.position.y > 0 ? this.awayTeam : this.homeTeam;
+    const playerTakingGoalKick = team.players.find(
+      (player) => player.position === "GK"
+    );
+
+    if (playerTakingGoalKick) {
+      this.ball.resetForGoalKick(
+        team.name === this.homeTeam.name ? "home" : "away"
+      );
+      playerTakingGoalKick.setPieceGoalKick(this.ball);
+      this.possession(team);
+    }
+  }
+
+  // Reset the ball for a corner kick and have a player take the corner kick
+  resetForCornerKick() {
+    const team = this.ball.position.y > 0 ? this.awayTeam : this.homeTeam;
+    const side = this.ball.position.x < 0 ? "left" : "right";
+    const playerTakingCornerKick = team.players.find(
+      (player) => player.position === "RM" || player.position === "LM"
+    );
+
+    if (playerTakingCornerKick) {
+      this.ball.resetForCornerKick(
+        team.name === this.homeTeam.name ? "home" : "away",
+        side
+      );
+      playerTakingCornerKick.setPieceCornerKick(this.ball, side);
+      this.possession(team);
+    }
+  }
+
+  // Reset the ball for a free kick
+  resetForFreeKick(player) {
+    console.log("Free kick awarded.");
+    const freeKickPosition = {
+      x: player.currentPosition.x,
+      y: player.currentPosition.y,
+    };
+
+    // Reset the ball and let the player take the free kick
+    this.ball.resetForFreeKick(freeKickPosition);
+    player.setPieceFreeKick(this.ball, freeKickPosition);
   }
 
   // End the match

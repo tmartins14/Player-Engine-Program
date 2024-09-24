@@ -63,8 +63,8 @@ class Match {
 
     // Find the nearest teammate to pass the ball to
     const targetTeammate = playerWithBall.findBestTeammateToPass(
-      this.homeTeam.players,
-      this.awayTeam.players
+      this.homeTeam.getPlayers(),
+      this.awayTeam.getPlayers()
     );
 
     if (targetTeammate) {
@@ -99,7 +99,12 @@ class Match {
   // Simulate actions for each team
   simulateTeamActions(team, opponentTeam) {
     team.players.forEach((player) => {
-      player.decideAction(this.ball, opponentTeam.players, team.players);
+      // Pass explicit lists of teammates and opponents, avoiding circular references
+      player.decideAction(
+        this.ball,
+        opponentTeam.getPlayers(),
+        team.getPlayers()
+      );
     });
   }
 

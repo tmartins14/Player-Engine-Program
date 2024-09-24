@@ -35,6 +35,14 @@ class Team {
     player.setTeam(null);
   }
 
+  getPlayers() {
+    return this.players;
+  }
+
+  getOpponentPlayers(opponentTeam) {
+    return opponentTeam.players;
+  }
+
   getFormationPositions() {
     const formations = {
       "4-4-2": {

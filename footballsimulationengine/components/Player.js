@@ -75,38 +75,32 @@ class Player {
 
   // 3. Decision Making
   decideAction(ball, opponents, team) {
+    console.log(this.field);
     console.log(`${this.name} hasBall: ${this.hasBall}`);
 
     if (this.hasBall) {
+      // The player has the ball, so they need to decide what to do with it
       this.decideActionWithBall(ball, opponents, team);
     } else if (ball.carrier && ball.carrier.teamId === this.teamId) {
+      // The player's team has possession, but this player does not have the ball
       this.decideActionWithoutBallInPossession(ball, opponents, team);
     } else if (!ball.carrier) {
       // No player has the ball: move the closest player to the ball to claim possession
       this.decideActionChaseBall(ball, team);
     } else if (ball.carrier.teamId !== this.teamId) {
+      // The opponent has possession of the ball, so this player should respond accordingly
       this.decideActionWithoutBallOutOfPossession(ball, opponents, team);
     } else if (!ball.isInPlay) {
+      // The ball is out of play (e.g., corner, free kick, etc.)
       this.decideActionDuringDeadBall(ball, opponents, team);
     } else {
+      // Default fallback action if none of the above conditions are met
       this.actionHoldPosition();
     }
   }
 
   decideActionChaseBall(ball, team) {
-    console.log(team.players);
-
-    // Determine the closest player to the ball on the team
-    const closestTeammate = team.players.reduce((closestPlayer, player) => {
-      const distanceToBall = player.calculateDistance(
-        player.currentPosition,
-        ball.position
-      );
-      const closestDistance = closestPlayer
-        ? player.calculateDistance(closestPlayer.currentPosition, ball.position)
-        : Infinity;
-      return distanceToBall < closestDistance ? player : closestPlayer;
-    }, null);
+    const closestTeammate = this.findClosestTeammateToBall(ball, team);
 
     // If this player is the closest, move toward the ball to claim it
     if (closestTeammate === this) {
@@ -1321,6 +1315,21 @@ class Player {
     ball.isShot = true;
     ball.carrier = null;
     this.hasBall = false;
+  }
+
+  findClosestTeammateToBall(ball, team) {
+    // console.log(team);
+    return team.reduce((closestPlayer, player) => {
+      const distanceToBall = this.calculateDistance(
+        player.currentPosition,
+        ball.position
+      );
+      const closestDistance = closestPlayer
+        ? this.calculateDistance(closestPlayer.currentPosition, ball.position)
+        : Infinity;
+
+      return distanceToBall < closestDistance ? player : closestPlayer;
+    }, null);
   }
 }
 

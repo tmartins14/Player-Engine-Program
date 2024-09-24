@@ -1,4 +1,22 @@
 {
-  "pitchWidth": 680,
-  "pitchHeight": 1050
+  "pitchWidth": 100,
+  "pitchHeight": 132,
+  "centerX": 0,
+  "centerY": 0,
+  "topLeftCorner": {
+    "x": -340,
+    "y": 525
+  },
+  "topRightCorner": {
+    "x": 340,
+    "y": 525
+  },
+  "bottomLeftCorner": {
+    "x": -340,
+    "y": -525
+  },
+  "bottomRightCorner": {
+    "x": 340,
+    "y": -525
+  }
 }

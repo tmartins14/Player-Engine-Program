@@ -15,6 +15,15 @@ class Match {
     this.isPlaying = false; // Indicates if the match is currently ongoing
   }
 
+  // Initialize player positions for both teams
+  initializePositions() {
+    // Set the positions for home and away teams using their formations
+    this.homeTeam.setFormationPositions(this.field, false);
+    this.awayTeam.setFormationPositions(this.field, true);
+
+    console.log("Player positions initialized for both teams.");
+  }
+
   // Start the match
   startMatch(onUpdatePositions) {
     this.isPlaying = true;

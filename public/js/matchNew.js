@@ -10,36 +10,6 @@ const playerSizeMultiplier = 4;
 const ballSizeMultiplier = 3;
 
 /**
- * Converts in-game player positions (relative to the pitch) to frontend coordinates.
- * The in-game coordinate system has (0, 0) at the center, while the frontend coordinate system has (0, 0) at the top left.
- *
- * @param {number} x - The player's in-game x position (center of the field is 0).
- * @param {number} y - The player's in-game y position (center of the field is 0).
- * @param {Object} pitchData - The pitch dimensions and coordinates.
- * @returns {Object} - The converted frontend coordinates.
- */
-function convertToFrontendCoordinates(x, y, pitchData) {
-  const { pitchWidth, pitchHeight } = pitchData;
-
-  // Infer corners based on pitch dimensions (centered)
-  const topLeftCorner = { x: 0, y: 0 };
-  const bottomRightCorner = { x: pitchWidth, y: -pitchHeight };
-
-  // Calculate the in-game pitch dimensions (width and height)
-  const inGameWidth = bottomRightCorner.x - topLeftCorner.x;
-  const inGameHeight = topLeftCorner.y - bottomRightCorner.y;
-
-  // Scale the in-game x and y positions to the frontend coordinates (0, 0 in top-left)
-  const scaledX = ((x + pitchWidth / 2) / inGameWidth) * pitchWidth;
-  const scaledY = ((-y + pitchHeight / 2) / inGameHeight) * pitchHeight;
-
-  return {
-    x: scaledX,
-    y: scaledY,
-  };
-}
-
-/**
  * Initiates the match by fetching initial player positions and drawing the pitch and players.
  */
 function startMatch() {
@@ -54,30 +24,20 @@ function setPositions() {
   http.onreadystatechange = function () {
     if (this.readyState === 4 && this.status === 200) {
       var result = JSON.parse(this.responseText);
-      console.log(result);
-      // Set canvas size according to pitch size
+
+      console.log(JSON.stringify(result, null, 2));
+
       var c = document.getElementById("map");
       var ctx = c.getContext("2d");
+
+      // Set canvas size according to pitch size
       ctx.canvas.width = result[0]; // pitchWidth
       ctx.canvas.height = result[1]; // pitchHeight
 
-      const pitchData = {
-        pitchWidth: result[0],
-        pitchHeight: result[1],
-        topLeftCorner: { x: -340, y: 525 },
-        bottomRightCorner: { x: 340, y: -525 },
-      };
-
       // Iterate over the result to draw players and ball
-      for (let i = 2; i < result.length - 2; i += 2) {
-        // Convert positions using the function
-        const { x: convertedX, y: convertedY } = convertToFrontendCoordinates(
-          result[i],
-          result[i + 1],
-          pitchData
-        );
-
+      for (let i = 2; i < result.length - 1; i++) {
         ctx.beginPath();
+
         if (i < 24) {
           ctx.fillStyle = "red"; // Home team
         } else if (i >= 24 && i < result.length - 3) {
@@ -88,17 +48,20 @@ function setPositions() {
 
         // Draw the players and the ball
         ctx.arc(
-          convertedX,
-          convertedY,
+          result[i],
+          result[i + 1],
           i >= result.length - 3 ? ballSizeMultiplier : playerSizeMultiplier,
           0,
           2 * Math.PI
         );
         ctx.fill();
+        i++; // Move to next pair of coordinates
       }
 
       // Update match information and result display
       matchInfo = result[result.length - 1];
+      console.log("result", result);
+      console.log("matchInfo", matchInfo);
       document.getElementById(
         "result"
       ).innerHTML = `${matchInfo.homeTeam.name}: ${matchInfo.homeTeamStatistics.goals} - ${matchInfo.awayTeamStatistics.goals} : ${matchInfo.awayTeam.name}`;
@@ -151,7 +114,6 @@ function movePlayers(endpoint) {
     if (this.readyState === 4 && this.status === 200) {
       its++; // Increment iteration count
       var result = JSON.parse(this.responseText);
-
       var c = document.getElementById("map");
       var ctx = c.getContext("2d");
 
@@ -159,22 +121,10 @@ function movePlayers(endpoint) {
       ctx.canvas.width = result[0]; // pitchWidth
       ctx.canvas.height = result[1]; // pitchHeight
 
-      const pitchData = {
-        pitchWidth: result[0],
-        pitchHeight: result[1],
-        topLeftCorner: { x: -340, y: 525 },
-        bottomRightCorner: { x: 340, y: -525 },
-      };
-
-      // Iterate over the result, applying coordinate conversion from index 2 to length - 2
-      for (let i = 2; i < result.length - 2; i += 2) {
-        const { x: convertedX, y: convertedY } = convertToFrontendCoordinates(
-          result[i],
-          result[i + 1],
-          pitchData
-        );
-
+      // Draw players and ball
+      for (let i = 2; i < result.length - 1; i++) {
         ctx.beginPath();
+
         if (i < 24) {
           ctx.fillStyle = "red"; // Home team
         } else if (i >= 24 && i < result.length - 3) {
@@ -184,13 +134,14 @@ function movePlayers(endpoint) {
         }
 
         ctx.arc(
-          convertedX,
-          convertedY,
+          result[i],
+          result[i + 1],
           i >= result.length - 3 ? ballSizeMultiplier : playerSizeMultiplier,
           0,
           2 * Math.PI
         );
         ctx.fill();
+        i++;
       }
 
       // Update match information and result display
@@ -223,23 +174,11 @@ function switchSides() {
       ctx.canvas.width = result[0]; // pitchWidth
       ctx.canvas.height = result[1]; // pitchHeight
 
-      const pitchData = {
-        pitchWidth: result[0],
-        pitchHeight: result[1],
-        topLeftCorner: { x: -340, y: 525 },
-        bottomRightCorner: { x: 340, y: -525 },
-      };
-
       // Draw players and ball after switching sides
-      for (let i = 2; i < result.length - 3; i += 2) {
-        const { x: convertedX, y: convertedY } = convertToFrontendCoordinates(
-          result[i],
-          result[i + 1],
-          pitchData
-        );
-
+      for (let i = 2; i < result.length - 3; i++) {
         ctx.beginPath();
-        ctx.arc(convertedX, convertedY, playerSizeMultiplier, 0, 2 * Math.PI);
+
+        ctx.arc(result[i], result[i + 1], playerSizeMultiplier, 0, 2 * Math.PI);
 
         if (i < 24) {
           ctx.fillStyle = "red"; // Home team
@@ -249,6 +188,7 @@ function switchSides() {
           ctx.fillStyle = "lime"; // Ball
         }
         ctx.fill();
+        i++;
       }
 
       // Update match information and result display

@@ -59,7 +59,7 @@ const createTeam = async (name, formation) => {
   }
 
   // Set player positions based on the team's formation
-  //   team.setFormationPositions(new Field(11));
+  team.setFormationPositions(new Field(11));
 
   return team; // Return the created team
 };
@@ -105,18 +105,7 @@ async function initiateGame(team1, team2, pitchDetails) {
 
   // Log the current position of each player in the homeTeam
   for (const player of homeTeam.players) {
-    console.log(
-      `${player.name} (${player.position}) is at position: `,
-      player.currentPosition
-    );
-  }
-
-  // Log the current position of each player in the homeTeam
-  for (const player of awayTeam.players) {
-    console.log(
-      `${player.name} (${player.position}) is at position: `,
-      player.currentPosition
-    );
+    console.log(`${player.name} is at position: `, player.currentPosition);
   }
 
   return match;

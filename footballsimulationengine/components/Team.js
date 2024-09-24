@@ -43,7 +43,7 @@ class Team {
     return opponentTeam.players;
   }
 
-  getFormationPositions() {
+  getFormationPositions(isAwayTeam = false) {
     const formations = {
       "4-4-2": {
         GK: { x: 0, y: -0.45 },
@@ -51,12 +51,12 @@ class Team {
         CB1: { x: -0.1, y: -0.3 },
         CB2: { x: 0.1, y: -0.3 },
         LB: { x: 0.3, y: -0.3 },
-        RM: { x: -0.3, y: 0 },
-        CM1: { x: -0.1, y: 0 },
-        CM2: { x: 0.1, y: 0 },
-        LM: { x: 0.3, y: 0 },
-        ST1: { x: -0.1, y: 0.3 },
-        ST2: { x: 0.1, y: 0.3 },
+        RM: { x: -0.3, y: -0.2 },
+        CM1: { x: -0.1, y: -0.2 },
+        CM2: { x: 0.1, y: -0.2 },
+        LM: { x: 0.3, y: -0.2 },
+        ST1: { x: -0.1, y: -0.1 },
+        ST2: { x: 0.1, y: -0.1 },
       },
       "4-3-3": {
         GK: { x: 0, y: -0.45 },
@@ -73,11 +73,23 @@ class Team {
       },
     };
 
-    return formations[this.formation] || {};
+    let positions = formations[this.formation] || {};
+
+    // Flip the coordinates if the team is away
+    if (isAwayTeam) {
+      positions = Object.fromEntries(
+        Object.entries(positions).map(([position, coords]) => [
+          position,
+          { x: -coords.x, y: -coords.y },
+        ])
+      );
+    }
+
+    return positions;
   }
 
-  setFormationPositions(field) {
-    const formationPositions = this.getFormationPositions();
+  setFormationPositions(field, isAwayTeam = false) {
+    const formationPositions = this.getFormationPositions(isAwayTeam);
 
     this.players.forEach((player) => {
       const positionKey = player.position;
@@ -85,9 +97,18 @@ class Team {
 
       if (relativePosition) {
         const absolutePosition = {
-          x: relativePosition.x * field.width,
-          y: relativePosition.y * field.length,
+          x: relativePosition.x * field.width, // Use half of the field width
+          y: relativePosition.y * field.length, // Use half of the field length
         };
+
+        if (isAwayTeam) {
+          // Flip coordinates for the away team
+          absolutePosition.x = -absolutePosition.x;
+          absolutePosition.y = -absolutePosition.y;
+        }
+
+        console.log(isAwayTeam, absolutePosition);
+
         player.setPosition(absolutePosition);
       } else {
         console.error(

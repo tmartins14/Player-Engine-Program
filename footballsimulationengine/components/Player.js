@@ -75,7 +75,7 @@ class Player {
 
   // 3. Decision Making
   decideAction(ball, opponents, team) {
-    console.log(this.field);
+    // console.log(this.field);
     console.log(`${this.name} hasBall: ${this.hasBall}`);
 
     if (this.hasBall) {

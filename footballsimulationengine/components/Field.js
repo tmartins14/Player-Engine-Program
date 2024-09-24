@@ -1,3 +1,5 @@
+const fs = require("fs");
+
 class Field {
   constructor(playerCount) {
     // Set dynamic field sizes based on the number of players
@@ -18,16 +20,36 @@ class Field {
     this.cornerCircleRadius = this.calculateCornerCircleRadius();
   }
 
+  // Load pitch dimensions from the pitch.json file synchronously
+  loadPitchDimensionsFromFile() {
+    try {
+      const pitchData = fs.readFileSync("./data/pitch.json", "utf8");
+      const pitch = JSON.parse(pitchData);
+      return {
+        width: pitch.pitchWidth,
+        length: pitch.pitchHeight,
+      };
+    } catch (error) {
+      console.error("Error reading pitch.json file:", error);
+      // Return default field dimensions in case of error
+      return { width: 100, length: 132 };
+    }
+  }
+
+  // Set field dimensions based on player count and JSON file (synchronous)
   setFieldDimensions(playerCount) {
-    // Set field dimensions based on the number of players
+    // Read the dimensions from pitch.json
+    const pitchDimensions = this.loadPitchDimensionsFromFile();
+
+    // Set field dimensions based on the number of players and pitch file
     switch (playerCount) {
       case 6: // 6v6
         return { width: 55, length: 72 };
       case 7: // 7v7
         return { width: 65, length: 82 };
       case 11: // 11v11
-      default: // Default to full-size field
-        return { width: 100, length: 132 };
+      default: // Use pitch.json dimensions for full-size field
+        return pitchDimensions;
     }
   }
 

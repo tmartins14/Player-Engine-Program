@@ -9,7 +9,7 @@ const bodyParser = require("body-parser");
 const cookieParser = require("cookie-parser");
 const async = require("async");
 const http = require("http");
-const footballEngine = require("./footballsimulationengine/engine"); // Create teams from this script
+const footballEngine = require("./footballsimulationengine/engineNew"); // Create teams from this script
 const matchInfo = {};
 let its;
 
@@ -100,7 +100,7 @@ app.get("/movePlayers", function (req, res) {
 
 // Endpoint to fetch current match details
 app.get("/getMatchDetails", function (req, res) {
-  //   console.log(matchInfo.matchSetup);
+  console.log(matchInfo.matchSetup);
   res.send(matchInfo.matchSetup);
 });
 
@@ -247,6 +247,7 @@ function processPositions(homeTeam, awayTeam, matchDetails) {
     });
 
     resolve(sendArray);
+    console.log(sendArray);
   });
 }
 

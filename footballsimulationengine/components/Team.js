@@ -80,15 +80,29 @@ class Team {
     return positions;
   }
 
-  setFormationPositions(field, isAwayTeam) {
+  setFormationPositions(field, isAwayTeam, isKickingOff) {
     const formationPositions = this.getFormationPositions();
 
-    this.players.forEach((player) => {
+    // Iterate over each player to set their position
+    this.players.forEach((player, index) => {
       const positionKey = player.position;
       const relativePosition = formationPositions[positionKey];
 
+      if (isKickingOff && index === this.players.length - 1) {
+        // Set the last two players (typically forwards) to (0,0) if kicking off
+        relativePosition.x = 0;
+        relativePosition.y = 0;
+        player.hasBall = true;
+      }
+
+      if (isKickingOff && index === this.players.length - 2) {
+        // Set the last two players (typically forwards) to (0,0) if kicking off
+        relativePosition.x = 0.05;
+        relativePosition.y = 0;
+      }
+
       if (relativePosition) {
-        const absolutePosition = {
+        let absolutePosition = {
           x: relativePosition.x * field.width,
           y: relativePosition.y * field.length,
         };

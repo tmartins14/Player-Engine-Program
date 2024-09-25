@@ -17,11 +17,26 @@ class Match {
 
   // Initialize player positions for both teams
   initializePositions() {
-    // Set the positions for home and away teams using their formations
-    this.homeTeam.setFormationPositions(this.field, false);
-    this.awayTeam.setFormationPositions(this.field, true);
+    // Randomly choose which team kicks off first
+    const isHomeTeamKickingOff = Math.random() > 0.5;
 
-    console.log("Player positions initialized for both teams.");
+    // Set the positions for home and away teams using their formations
+    this.homeTeam.setFormationPositions(
+      this.field,
+      false,
+      isHomeTeamKickingOff
+    );
+    this.awayTeam.setFormationPositions(
+      this.field,
+      true,
+      !isHomeTeamKickingOff
+    );
+
+    console.log(
+      `Player positions initialized for both teams. ${
+        isHomeTeamKickingOff ? "Home team" : "Away team"
+      } is kicking off.`
+    );
   }
 
   // Start the match

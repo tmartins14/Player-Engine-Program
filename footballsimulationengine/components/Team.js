@@ -1,3 +1,5 @@
+const e = require("express");
+
 class Team {
   constructor(name, formation) {
     this.name = name;
@@ -43,7 +45,7 @@ class Team {
     return opponentTeam.players;
   }
 
-  getFormationPositions(isAwayTeam = false) {
+  getFormationPositions(isAwayTeam) {
     const formations = {
       "4-4-2": {
         GK: { x: 0, y: -0.45 },
@@ -75,21 +77,11 @@ class Team {
 
     let positions = formations[this.formation] || {};
 
-    // Flip the coordinates if the team is away
-    if (isAwayTeam) {
-      positions = Object.fromEntries(
-        Object.entries(positions).map(([position, coords]) => [
-          position,
-          { x: -coords.x, y: -coords.y },
-        ])
-      );
-    }
-
     return positions;
   }
 
-  setFormationPositions(field, isAwayTeam = false) {
-    const formationPositions = this.getFormationPositions(isAwayTeam);
+  setFormationPositions(field, isAwayTeam) {
+    const formationPositions = this.getFormationPositions();
 
     this.players.forEach((player) => {
       const positionKey = player.position;
@@ -97,8 +89,8 @@ class Team {
 
       if (relativePosition) {
         const absolutePosition = {
-          x: relativePosition.x * field.width, // Use half of the field width
-          y: relativePosition.y * field.length, // Use half of the field length
+          x: relativePosition.x * field.width,
+          y: relativePosition.y * field.length,
         };
 
         if (isAwayTeam) {

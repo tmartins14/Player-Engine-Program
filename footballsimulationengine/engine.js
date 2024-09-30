@@ -13,7 +13,7 @@ const Field = require("./components/Field");
  * @param {Object} team1 - First team object (home team).
  * @param {Object} team2 - Second team object (away team).
  * @param {Object} pitchDetails - Pitch object containing pitch width, length, etc.
- * @returns {Object} matchDetails - The initialized match details.
+ * @returns {Object} match - The initialized match object.
  */
 
 const createTeam = async (name, formation) => {
@@ -58,12 +58,16 @@ const createTeam = async (name, formation) => {
     team.addPlayer(player); // Add player to team
   }
 
-  // Set player positions based on the team's formation
-  //   team.setFormationPositions(new Field(11));
-
   return team; // Return the created team
 };
 
+/**
+ * Initializes the game by creating home and away teams and setting up the pitch details.
+ * @param {Object} team1 - First team object.
+ * @param {Object} team2 - Second team object.
+ * @param {Object} pitchDetails - The pitch configuration with width and height.
+ * @returns {Object} match - The initialized match object.
+ */
 async function initiateGame(team1, team2, pitchDetails) {
   // Create the home and away teams using the new Team constructor
   const homeTeam = new Team(team1.name, team1.formation);
@@ -96,70 +100,113 @@ async function initiateGame(team1, team2, pitchDetails) {
     awayTeam.addPlayer(player);
   });
 
-  // Initialize the match object with the teams and pitch details
+  // Initialize the match object with the teams and field details
   const match = new Match(homeTeam, awayTeam);
 
-  match.initializePositions();
+  // Initialize the field dimensions using pitchDetails
+  const field = new Field(11);
+  field.setFieldDimensionsFromPitch(pitchDetails); // Use pitchDetails from pitch.json to set the dimensions
 
-  match.field = pitchDetails;
+  match.field = field; // Assign field to the match object
+
+  match.initializePositions(false); // Initialize player positions
 
   // Log the current position of each player in the homeTeam
-  for (const player of homeTeam.players) {
+  homeTeam.players.forEach((player) => {
     console.log(
       `${player.name} (${player.position}) is at position: `,
       player.currentPosition
     );
-  }
+  });
 
-  // Log the current position of each player in the homeTeam
-  for (const player of awayTeam.players) {
+  awayTeam.players.forEach((player) => {
     console.log(
       `${player.name} (${player.position}) is at position: `,
       player.currentPosition
     );
-  }
+  });
 
   return match;
 }
 
 /**
- * Simulates a single iteration of the match and updates match details.
- * This updates ball movement, player actions, and overall match flow.
- * @param {Object} match - The match instance initialized with the teams.
- * @returns {Object} matchDetails - The updated match details after a single iteration.
+ * Simulates the next frame of the match and returns the updated match details.
+ * @param {Object} match - The match object containing the current state.
+ * @param {Function} onUpdatePositions - Callback function to handle position updates.
+ * @returns {Array} matchDetails - The updated player positions, ball position, and match data.
  */
-async function playIteration(match) {
-  // Call updateMatch to process a single iteration of the match
+async function playIteration(match, onUpdatePositions) {
+  // Initialize an array to hold match details including player positions
   const matchDetails = [];
 
-  // Simulate one second (one frame) of the match
-  match.startMatch((currentPositions) => {
-    matchDetails.push(currentPositions); // Store each frame's positions in matchDetails
+  // Push the pitch dimensions first
+  matchDetails.push(match.field.width);
+  matchDetails.push(match.field.length);
+
+  // Use playMatch to update player positions and the ball's position
+  match.playMatch((currentPositions) => {
+    // Push each player's position into matchDetails
+    currentPositions.forEach((position) => {
+      matchDetails.push(position.x);
+      matchDetails.push(position.y);
+    });
+
+    // Push the match summary details (teams, ball, etc.)
+    matchDetails.push({
+      homeTeam: {
+        name: match.homeTeam.name,
+        players: match.homeTeam.players.map((player) => ({
+          name: player.name,
+          position: player.position,
+          rating: player.stats.rating,
+          fitness: player.fitness,
+          currentPOS: [player.currentPosition.x, player.currentPosition.y],
+        })),
+      },
+      awayTeam: {
+        name: match.awayTeam.name,
+        players: match.awayTeam.players.map((player) => ({
+          name: player.name,
+          position: player.position,
+          rating: player.stats.rating,
+          fitness: player.fitness,
+          currentPOS: [player.currentPosition.x, player.currentPosition.y],
+        })),
+      },
+      ball: {
+        position: [match.ball.position.x, match.ball.position.y],
+        withPlayer: match.ball.withPlayer || false,
+      },
+      matchTime: match.matchTime,
+      half: match.half || 1,
+    });
   });
 
-  return matchDetails;
+  // Return both the updated match object and matchDetails
+  return { match, matchDetails };
 }
 
 /**
  * Starts the second half of the match, switching sides and resetting necessary variables.
- * @param {Object} match - The match instance initialized with the teams.
- * @returns {Object} matchDetails - The updated match details after switching sides.
+ * @param {Object} match - The match object initialized with the teams.
+ * @returns {Array} matchDetails - The updated match details after switching sides.
  */
 async function startSecondHalf(match) {
   // Switch the sides for both teams
   match.homeTeam.switchSides();
   match.awayTeam.switchSides();
 
-  // Reset match details for the second half
-  match.kickOff();
+  // Re-initialize positions with the sides switched
+  match.initializePositions(true); // true indicates it's the second half
 
-  // Capture match details for the second half
   const matchDetails = [];
-  match.startMatch((currentPositions) => {
-    matchDetails.push(currentPositions); // Store each frame's positions in matchDetails
+
+  // Kick off the second half and capture the positions
+  match.playMatch((currentPositions) => {
+    matchDetails.push(currentPositions); // Store positions for the second half
   });
 
-  return matchDetails;
+  return matchDetails; // Return the updated match details for the second half
 }
 
 module.exports = {

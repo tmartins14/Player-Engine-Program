@@ -241,13 +241,23 @@ class Field {
     return this.getCenterPosition();
   }
 
-  getOpponentGoalPosition(team) {
-    // If the team is the home team, the opponent's goal is at the top of the field
-    if (team === "home") {
-      return { x: 0, y: this.length / 2 }; // Opponent's goal at the top center
+  getGoalPosition(isHome) {
+    // If isHome is false, flip the y-coordinates to represent the away team
+    const yMultiplier = isHome ? 1 : -1;
+
+    return {
+      leftPost: { x: -this.width / 4, y: (yMultiplier * this.length) / 2 },
+      rightPost: { x: this.width / 4, y: (yMultiplier * this.length) / 2 },
+      // crossBar: {}  // Add crossbar logic when needed
+    };
+  }
+
+  setFieldDimensionsFromPitch(pitchDetails) {
+    if (pitchDetails.pitchWidth && pitchDetails.pitchHeight) {
+      this.width = pitchDetails.pitchWidth;
+      this.length = pitchDetails.pitchHeight;
     } else {
-      // If the team is the away team, the opponent's goal is at the bottom of the field
-      return { x: 0, y: -this.length / 2 }; // Opponent's goal at the bottom center
+      console.error("Invalid pitch details: Missing pitch width or height.");
     }
   }
 }

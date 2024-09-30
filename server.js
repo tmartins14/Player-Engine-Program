@@ -31,6 +31,7 @@ app.all("/", function (req, res) {
 });
 
 // Endpoint to start the game and initialize player positions
+// Endpoint to start the game and initialize player positions
 app.get("/getstartPOS", async function (req, res) {
   try {
     const pitchDetails = await readFile("./data/pitch.json");
@@ -40,9 +41,10 @@ app.get("/getstartPOS", async function (req, res) {
     const team2 = await footballEngine.createTeam("Dragons", "4-4-2");
 
     footballEngine
-      .initiateGame(team1, team2, pitchDetails)
+      .initiateGame(team1, team2, pitchDetails) // Pass pitchDetails from pitch.json
       .then(function (matchSetup) {
         matchInfo.matchSetup = matchSetup;
+
         processPositions(matchSetup.homeTeam, matchSetup.awayTeam, matchSetup)
           .then(function (sendArray) {
             res.send(sendArray);
@@ -52,7 +54,7 @@ app.get("/getstartPOS", async function (req, res) {
           });
       })
       .catch(function (error) {
-        console.error("Error: ", error);
+        console.error("Error initiating game: ", error);
       });
   } catch (error) {
     console.error("Error: ", error);
@@ -80,21 +82,32 @@ app.get("/startSecondHalf", function (req, res) {
 
 // Endpoint for moving players and updating the game state
 app.get("/movePlayers", function (req, res) {
+  // Call playIteration to simulate the next frame
   footballEngine
     .playIteration(matchInfo.matchSetup)
-    .then(function (matchSetup) {
-      its++;
-      matchInfo.matchSetup = matchSetup;
-      processPositions(matchSetup.homeTeam, matchSetup.awayTeam, matchSetup)
-        .then(function (sendArray) {
-          res.send(sendArray);
+    .then(({ match, matchDetails }) => {
+      // Destructure the result from playIteration
+      its++; // Increment iteration counter
+
+      // Update the match object in matchInfo with the new state of home/away teams and ball position
+      matchInfo.matchSetup = match; // Update the match object directly
+
+      // Process the positions to create the send array (send updated positions to the front end)
+      processPositions(
+        match.homeTeam, // Updated home team
+        match.awayTeam, // Updated away team
+        matchInfo.matchSetup // Use the updated match info
+      )
+        .then((sendArray) => {
+          res.send(sendArray); // Send the updated positions back to the client
         })
-        .catch(function (error) {
+        .catch((error) => {
           console.error("Error when processing positions: ", error);
         });
     })
-    .catch(function (error) {
-      console.error("Error: ", error);
+    .catch((error) => {
+      console.error("Error during playIteration: ", error);
+      res.status(500).send("Error during playIteration");
     });
 });
 
@@ -125,8 +138,8 @@ function processPositions(homeTeam, awayTeam, matchDetails) {
     const sendArray = [];
 
     // Push the pitch dimensions
-    sendArray.push(matchDetails.field.pitchWidth);
-    sendArray.push(matchDetails.field.pitchHeight);
+    sendArray.push(matchDetails.field.width);
+    sendArray.push(matchDetails.field.length);
 
     // Process the homeTeam's player positions and details
     homeTeam.players.forEach((player) => {

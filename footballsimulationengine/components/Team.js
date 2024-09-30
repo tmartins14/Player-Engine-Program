@@ -1,8 +1,7 @@
-const e = require("express");
-
 class Team {
   constructor(name, formation) {
     this.name = name;
+    this.goalPosition = null;
     this.formation = formation; // E.g., '4-4-2', '4-3-3'
     this.players = []; // Array to hold Player objects
     this.tactics = {
@@ -12,6 +11,7 @@ class Team {
       tempo: 50, // Default tempo
       passingStyle: 50, // Short vs. long passes
       buildUpPlayDirection: 50, // Central vs. wide play (0-100)
+      buildUpPlaySpeed: 50, // Slow vs Fast (0-100)
       compactness: 50, // How compact the team stays
       lineOfConfrontation: 50, // Where the team starts pressing
       crossingFrequency: 50, // How often the team crosses
@@ -112,8 +112,6 @@ class Team {
           absolutePosition.x = -absolutePosition.x;
           absolutePosition.y = -absolutePosition.y;
         }
-
-        console.log(isAwayTeam, absolutePosition);
 
         player.setPosition(absolutePosition);
       } else {

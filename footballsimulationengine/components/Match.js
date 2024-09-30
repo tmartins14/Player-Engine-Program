@@ -15,22 +15,54 @@ class Match {
     this.isPlaying = false; // Indicates if the match is currently ongoing
   }
 
+  getTeamGoalSide(team) {
+    const goalPosition = getGoalPosition();
+
+    if (team === "home") {
+      homeGoalPosition.leftPost.y = -homeGoalPosition.leftPost.y;
+    }
+    return goalPosition;
+  }
+
   // Initialize player positions for both teams
-  initializePositions() {
+  initializePositions(isSecondHalf = false) {
     // Randomly choose which team kicks off first
     const isHomeTeamKickingOff = Math.random() > 0.5;
 
     // Set the positions for home and away teams using their formations
-    this.homeTeam.setFormationPositions(
-      this.field,
-      false,
-      isHomeTeamKickingOff
-    );
-    this.awayTeam.setFormationPositions(
-      this.field,
-      true,
-      !isHomeTeamKickingOff
-    );
+    if (!isSecondHalf) {
+      // First half: home team at the bottom and away team at the top
+      this.homeTeam.setFormationPositions(
+        this.field,
+        false,
+        isHomeTeamKickingOff
+      );
+      this.awayTeam.setFormationPositions(
+        this.field,
+        true,
+        !isHomeTeamKickingOff
+      );
+
+      // Set goals for the first half
+      this.homeTeam.goalPosition = this.field.getGoalPosition(true); // Home team's goal at the bottom
+      this.awayTeam.goalPosition = this.field.getGoalPosition(false); // Away team's goal at the top
+    } else {
+      // Second half: switch sides
+      this.homeTeam.setFormationPositions(
+        this.field,
+        true,
+        !isHomeTeamKickingOff
+      );
+      this.awayTeam.setFormationPositions(
+        this.field,
+        false,
+        isHomeTeamKickingOff
+      );
+
+      // Set goals for the second half (switch sides)
+      this.homeTeam.goalPosition = this.field.getGoalPosition(false); // Home team's goal at the top
+      this.awayTeam.goalPosition = this.field.getGoalPosition(true); // Away team's goal at the bottom
+    }
 
     console.log(
       `Player positions initialized for both teams. ${
@@ -39,10 +71,11 @@ class Match {
     );
   }
 
-  // Start the match
-  startMatch(onUpdatePositions) {
+  switchSides() {}
+
+  // Play or update the match based on matchDetails
+  playMatch(onUpdatePositions) {
     this.isPlaying = true;
-    this.kickOff();
 
     // Use setInterval to simulate the match frame by frame
     const matchInterval = setInterval(() => {
@@ -113,9 +146,10 @@ class Match {
     // Update ball's position
     this.ball.updatePosition(timeDelta); // Use the given timeDelta for updating
 
+    // FIX - Can this part be made more efficient?
+    //      i.e. check only when the ball is close to the line?
     // Check if the ball has gone out of bounds
     this.checkForOutOfBounds();
-
     // Check for goals or significant events
     this.checkForGoal();
   }
@@ -134,22 +168,31 @@ class Match {
 
   // Check if a goal is scored
   checkForGoal() {
-    const goalPosition = this.field.getOpponentGoalPosition();
+    const homeGoal = this.field.getGoalPosition(true); // Home team's goal
+    const awayGoal = this.field.getGoalPosition(false); // Away team's goal
 
-    if (this.ball.position.y >= goalPosition.y && this.ball.isShot) {
-      // Goal scored logic
-      if (this.ball.position.y > 0) {
-        this.awayScore += 1;
-        console.log(
-          `Goal for ${this.awayTeam.name}! Score: ${this.homeScore} - ${this.awayScore}`
-        );
-      } else {
-        this.homeScore += 1;
-        console.log(
-          `Goal for ${this.homeTeam.name}! Score: ${this.homeScore} - ${this.awayScore}`
-        );
-      }
+    // Check if the ball crosses the home team's goal line (at the top of the pitch)
+    if (
+      Math.abs(this.ball.position.y) > Math.abs(homeGoal.leftPost.y) && // Ball crosses the goal line
+      this.ball.position.x >= homeGoal.leftPost.x && // Between the left post
+      this.ball.position.x <= homeGoal.rightPost.x // And the right post
+    ) {
+      // Goal for away team
+      this.awayScore += 1;
       this.kickOff(); // Reset ball for kickoff
+      return;
+    }
+
+    // Check if the ball crosses the away team's goal line (at the bottom of the pitch)
+    if (
+      Math.abs(this.ball.position.y) > Math.abs(awayGoal.leftPost.y) && // Ball crosses the goal line
+      this.ball.position.x >= awayGoal.leftPost.x && // Between the left post
+      this.ball.position.x <= awayGoal.rightPost.x // And the right post
+    ) {
+      // Goal for home team
+      this.homeScore += 1;
+      this.kickOff(); // Reset ball for kickoff
+      return;
     }
   }
 
@@ -165,6 +208,7 @@ class Match {
 
     // Out on the goal lines for corner kicks or goal kicks
     if (y < -this.field.length / 2 || y > this.field.length / 2) {
+      //   Fix this IF Statement
       if (this.ball.isShot) {
         // Ball went out from a shot, it could be a goal kick
         console.log("Ball went out for a goal kick.");
@@ -239,10 +283,11 @@ class Match {
   // End the match
   endMatch() {
     this.isPlaying = false;
-    console.log("Full Time!");
-    console.log(
-      `Final Score: ${this.homeTeam.name} ${this.homeScore} - ${this.awayScore} ${this.awayTeam.name}`
-    );
+    // console.log("Full Time!");
+    console
+      .log
+      //   `Final Score: ${this.homeTeam.name} ${this.homeScore} - ${this.awayScore} ${this.awayTeam.name}`
+      ();
   }
 
   // Manage ball possession

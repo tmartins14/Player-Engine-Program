@@ -114,6 +114,7 @@ class Team {
         }
 
         player.setPosition(absolutePosition);
+        player.formationPosition = absolutePosition;
       } else {
         console.error(
           `Unknown position for player ${player.name}: ${positionKey}`
@@ -128,7 +129,7 @@ class Team {
   }
 
   applyTactics() {
-    console.log(`Applying tactics: ${JSON.stringify(this.tactics)}`);
+    // console.log(`Applying tactics: ${JSON.stringify(this.tactics)}`);
     // Implementation to apply these tactics across the team
   }
 

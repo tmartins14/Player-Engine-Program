@@ -2,12 +2,14 @@
  * Table of Contents:
  * 1. Initialization and Setup
  * 2. Team Settings
- * 3. Decision Making
- * 4. Ball Handling and Shooting
- * 5. Defensive Actions
- * 6. Positioning and Movement
- * 7. Competency Checks
- * 8. Helper Methods
+ * 3. Role Assignment
+ * 4. Decision Making
+ * 5. Ball Handling and Shooting
+ * 6. Defensive Actions
+ * 7. Positioning and Movement
+ * 8. Set Pieces
+ * 9. Fitness and Injury Management
+ * 10. Helper Methods
  */
 
 const Field = require("./Field");
@@ -24,8 +26,8 @@ class Player {
     hasBall = false,
     isOffside = false,
     field = new Field(11), // Default to an 11v11 field
-    team = null,
     teamTactics = {}, // Team instructions passed by the Team class
+    roles = {}, // Player roles
   }) {
     this.name = name;
     this.teamId = teamId;
@@ -46,17 +48,33 @@ class Player {
     this.isOffside = isOffside;
     this.currentPosition = this.initializePosition(field); // Will be set by the Team class
     this.field = field; // The field on which the player is playing
-    this.team = null; // Will be set by the Team class
-    this.teamTactics = null; // Will be set by the Team class
+    this.teamTactics = teamTactics; // Set the team tactics passed in
+    this.teamSide = null; // Will store 'home' or 'away'
+    this.formationPosition = null; // Will be set based on team's formation
+
+    // 3. Role Assignment
+    // Player roles
+    this.roles = {
+      leftCornerTaker: roles.leftCornerTaker || false,
+      rightCornerTaker: roles.rightCornerTaker || false,
+      freeKickTaker: roles.freeKickTaker || false,
+      penaltyTaker: roles.penaltyTaker || false,
+      captain: roles.captain || false,
+      viceCaptain: roles.viceCaptain || false,
+    };
   }
 
   initializePosition(field) {
-    return { x: 0, y: -field.length / 4 }; // Example: halfway on their side of the field
+    // Initial position set to halfway on their side of the field
+    return { x: 0, y: -field.length / 4 };
   }
 
   // 2. Team Settings
   setTeam(team) {
-    this.team = team;
+    // Store only necessary data from the team
+    this.teamId = team.name;
+    this.teamSide = team.side; // 'home' or 'away'
+    this.teamTactics = team.tactics;
   }
 
   setPosition(position) {
@@ -73,343 +91,145 @@ class Player {
     this.teamTactics = tactics;
   }
 
-  // 3. Decision Making
-  decideAction(ball, opponents, team) {
-    if (this.hasBall) {
-      // The player has the ball, so they need to decide what to do with it
-      this.decideActionWithBall(ball, opponents, team);
-    } else if (ball.carrier && ball.carrier.teamId === this.teamId) {
-      // The player's team has possession, but this player does not have the ball
-      this.decideActionWithoutBallInPossession(ball, opponents, team);
-    } else if (!ball.carrier) {
-      // No player has the ball: move the closest player to the ball to claim possession
-      this.decideActionChaseBall(ball, team);
-    } else if (ball.carrier.teamId !== this.teamId) {
-      // The opponent has possession of the ball, so this player should respond accordingly
-      this.decideActionWithoutBallOutOfPossession(ball, opponents, team);
-    } else if (!ball.isInPlay) {
-      // The ball is out of play (e.g., corner, free kick, etc.)
-      this.decideActionDuringDeadBall(ball, opponents, team);
-    } else {
-      console.log(`${this.name} is holding position`);
-      // Default fallback action if none of the above conditions are met
-      this.actionHoldPosition();
-    }
-  }
-
-  decideActionChaseBall(ball, team) {
-    const closestTeammate = this.findClosestTeammateToBall(ball, team);
-
-    // If this player is the closest, move toward the ball to claim it
-    if (closestTeammate === this) {
-      console.log(`${this.name} is chasing the ball to claim possession.`);
-      this.actionMoveTowardsTarget(ball.position);
-    } else {
-      // console.log(`${this.name} is holding position`);
-      // If not the closest, perform a fallback action (e.g., find space, press)
-      this.actionHoldPosition();
-    }
-  }
-
-  decideActionWithBall(ball, opponents, team) {
-    console.log(`${this.name} is deciding what to do with the ball.`);
-
-    const { passingStyle = "default", tempo = "normal" } =
-      this.teamTactics || {};
-
-    // Prioritize shooting if in a shooting position
-    if (this.shouldShoot(ball, opponents, team)) {
-      // console.log(`${this.name} is shooting`);
-      this.actionShoot(ball, opponents, team);
-    }
-    // Check if passing is a good option
-    else if (this.shouldPass(ball, team, opponents)) {
-      const targetTeammate = this.findBestTeammateToPass(team, opponents);
-
-      console.log("Target Teammate:", targetTeammate);
-      // Only pass if a valid teammate is found
-      if (targetTeammate) {
-        // console.log(`${this.name} is passing`);
-        this.actionPass(ball, targetTeammate);
-      } else {
-        // console.log(`${this.name} is dribbling`);
-        this.actionDribble(ball, opponents, team); // If no pass target, dribble
+  // 3. Role Assignment
+  setRoles(roles) {
+    // Update roles based on the input object
+    for (let role in roles) {
+      if (roles.hasOwnProperty(role) && this.roles.hasOwnProperty(role)) {
+        this.roles[role] = roles[role];
       }
     }
-    // If neither shooting nor passing is ideal, dribble
-    else {
-      this.actionDribble(ball, opponents, team);
+  }
+
+  // 4. Decision Making
+  decideAction(ball, opponents, teammates) {
+    const gameContext = this.determineGameContext();
+
+    if (this.hasBall) {
+      this.decideActionWithBall(ball, opponents, teammates, gameContext);
+    } else if (ball.carrier && ball.carrier.teamId === this.teamId) {
+      this.decideActionWithoutBallInPossession(
+        ball,
+        opponents,
+        teammates,
+        gameContext
+      );
+    } else if (!ball.carrier) {
+      this.decideActionChaseBall(ball, teammates, gameContext);
+    } else if (ball.carrier.teamId !== this.teamId) {
+      this.decideActionWithoutBallOutOfPossession(
+        ball,
+        opponents,
+        teammates,
+        gameContext
+      );
+    } else if (!ball.isInPlay) {
+      this.decideActionDuringDeadBall(ball, opponents, teammates, gameContext);
+    } else {
+      this.actionHoldPosition(teammates);
     }
   }
 
-  decideActionWithoutBallInPossession(ball, opponents, team) {
-    const { offensiveRuns = "normal" } = this.teamTactics || {};
+  determineGameContext() {
+    const fieldLength = this.field.length;
+    const positionY = this.currentPosition.y;
+    const teamSideMultiplier = this.teamSide === "home" ? -1 : 1;
+    const adjustedPositionY = positionY * teamSideMultiplier;
 
+    if (this.field.isKickoff && this.hasBall) {
+      return "kickoff";
+    } else if (adjustedPositionY < -fieldLength / 3) {
+      return "defensiveThird";
+    } else if (adjustedPositionY > fieldLength / 3) {
+      return "attackingThird";
+    } else {
+      return "openPlay";
+    }
+  }
+
+  // Additional methods to enhance realism
+
+  decideActionChaseBall(ball, teammates, gameContext) {
+    const closestTeammate = this.findClosestTeammateToBall(ball, teammates);
+
+    if (closestTeammate === this) {
+      this.actionMoveTowardsTarget(ball.position);
+    } else {
+      this.actionHoldPosition(teammates);
+    }
+  }
+
+  decideActionWithBall(ball, opponents, teammates, gameContext) {
+    if (this.shouldShoot(ball, gameContext)) {
+      this.actionShoot(ball);
+    } else if (this.shouldPass(teammates, opponents, gameContext)) {
+      const targetTeammate = this.findBestTeammateToPass(teammates, opponents);
+      if (targetTeammate) {
+        this.actionPass(ball, targetTeammate);
+      } else {
+        this.actionDribble(ball, opponents, teammates);
+      }
+    } else {
+      this.actionDribble(ball, opponents, teammates);
+    }
+  }
+
+  decideActionWithoutBallInPossession(ball, opponents, teammates, gameContext) {
     if (this.shouldMakeRun(opponents)) {
-      console.log(`${this.name} is making a run`);
       this.actionMakeRun(opponents);
     } else {
-      console.log(`${this.name} is finding space`);
-      this.actionFindSpace(opponents);
+      this.actionSupportBallCarrier(ball, teammates);
     }
   }
 
-  decideActionWithoutBallOutOfPossession(ball, opponents, team) {
-    const { pressingIntensity = "normal" } = this.teamTactics || {};
-
-    if (this.shouldPress(ball, opponents, team)) {
-      console.log(`${this.name} is pressing`);
-      this.actionPress(ball, opponents, team);
+  decideActionWithoutBallOutOfPossession(
+    ball,
+    opponents,
+    teammates,
+    gameContext
+  ) {
+    if (this.shouldPress(ball, opponents)) {
+      this.actionPress(ball, opponents);
     } else {
-      console.log(`${this.name} is dropping into defense`);
       this.actionDropIntoDefense();
     }
   }
 
-  decideActionDuringDeadBall(ball, opponents, team) {
-    const { setPieceFocus = "balanced" } = this.teamTactics || {};
-
-    if (this.isAttackingSetPiece()) {
-      this.actionMoveToAttackingSetPiecePosition();
-    } else {
-      this.actionMoveToDefensiveSetPiecePosition();
-    }
-  }
-
-  //4. "Should" Methods
-
-  shouldDribbleOutOfPress(opponents) {
-    // Calculate the pressure level around the player
-    const pressureLevel = this.calculatePressure(opponents);
-
-    // Define thresholds for pressure and player stats
-    const pressureThreshold = 50; // Example threshold for pressure level to trigger dribbling out
-    const dribblingThreshold = 70; // Minimum dribbling skill needed to attempt to dribble out
-    const composureThreshold = 65; // Minimum composure needed to maintain control under pressure
-
-    // Determine if the player should attempt to dribble out of the press
-    return (
-      pressureLevel > pressureThreshold && // High pressure level
-      this.stats.dribbling >= dribblingThreshold && // Sufficient dribbling skill
-      this.stats.composure >= composureThreshold // Sufficient composure
-    );
-  }
-
-  shouldTakeOnDefender(opponents) {
-    // Find the nearest opponent to the player
-    const nearestOpponent = this.findNearestOpponent(opponents);
-
-    // If there is no opponent nearby, return false
-    if (!nearestOpponent) {
-      return false;
-    }
-
-    // Calculate the distance to the nearest opponent
-    const distanceToOpponent = this.calculateDistance(
-      this.currentPosition,
-      nearestOpponent.currentPosition
-    );
-
-    // Define a threshold for how close the opponent needs to be to consider taking them on
-    const proximityThreshold = 5; // Example threshold in meters
-
-    // Determine if the player's dribbling stat is higher than the opponent's defending stat
-    const hasDribblingAdvantage =
-      this.stats.dribbling > nearestOpponent.stats.defending;
-
-    // Decide to take on the defender if the opponent is within proximity and the player has a dribbling advantage
-    if (distanceToOpponent <= proximityThreshold && hasDribblingAdvantage) {
-      return true;
-    }
-
-    return false;
-  }
-
-  shouldShoot(ball) {
-    const { shootingPreference = "balanced" } = this.teamTactics || {};
-
-    // Use the player's team to find the opponent's goal position
-    const opponentGoalPosition = this.getOpponentGoalPosition(this.team.name);
-
-    const distanceToGoal = this.calculateDistance(
-      this.currentPosition,
-      opponentGoalPosition
-    );
-
-    // Decision logic based on team instructions and player's shooting stats
-    if (shootingPreference === "aggressive" && distanceToGoal < 25) {
-      return true;
-    } else if (
-      shootingPreference === "balanced" &&
-      distanceToGoal < 20 &&
-      this.stats.shooting > 70
-    ) {
-      return true;
-    } else if (
-      shootingPreference === "conservative" &&
-      distanceToGoal < 15 &&
-      this.stats.shooting > 80
-    ) {
-      return true;
-    }
-
-    return false;
-  }
-
-  shouldPass(ball, team, opponents) {
-    const { passingStyle = "short" } = this.teamTactics || {};
-
-    // Find the best teammate to pass to
-    const targetTeammate = this.findBestTeammateToPass(team, opponents);
-
-    // If no valid teammate is found, return false
-    if (!targetTeammate) {
-      return false;
-    }
-
-    const distanceToTeammate = this.calculateDistance(
-      this.currentPosition,
-      targetTeammate.currentPosition
-    );
-
-    // Decision logic based on team instructions and player's passing stats
-    if (
-      passingStyle === "short" &&
-      distanceToTeammate < 20 &&
-      this.stats.passing > 60
-    ) {
-      return true;
-    } else if (
-      passingStyle === "direct" &&
-      distanceToTeammate < 40 &&
-      this.stats.passing > 70
-    ) {
-      return true;
-    } else if (
-      passingStyle === "long" &&
-      distanceToTeammate < 50 &&
-      this.stats.passing > 80
-    ) {
-      return true;
-    }
-
-    return false;
-  }
-
-  shouldMakeRun(opponents) {
-    const { offensiveRuns = "balanced" } = this.teamTactics || {};
-
-    // Decision logic based on team instructions, player's pace, positioning, and opponents
-    if (
-      offensiveRuns === "aggressive" &&
-      this.stats.pace > 70 &&
-      !this.isBeingMarked(opponents)
-    ) {
-      return true;
-    } else if (
-      offensiveRuns === "balanced" &&
-      this.stats.pace > 60 &&
-      !this.isOffside &&
-      this.hasSpaceToRun(opponents)
-    ) {
-      return true;
-    } else if (
-      offensiveRuns === "conservative" &&
-      this.stats.pace > 50 &&
-      this.isInFormationPosition() &&
-      !this.isBeingMarked(opponents)
-    ) {
-      return true;
-    }
-
-    return false;
-  }
-
-  shouldPress(ball) {
-    const { pressingIntensity = "medium" } = this.teamTactics || {};
-
-    const distanceToBall = this.calculateDistance(
-      this.currentPosition,
-      ball.position
-    );
-
-    // Decision logic based on team instructions and player's defending skill
-    if (
-      pressingIntensity === "high" &&
-      distanceToBall < 15 &&
-      this.stats.defending > 70
-    ) {
-      return true;
-    } else if (
-      pressingIntensity === "medium" &&
-      distanceToBall < 20 &&
-      this.stats.defending > 60
-    ) {
-      return true;
-    } else if (
-      pressingIntensity === "low" &&
-      distanceToBall < 25 &&
-      this.stats.defending > 50
-    ) {
-      return true;
-    }
-
-    return false;
-  }
-
-  shouldDribbleIntoSpace(opponents) {
-    // Find potential open space around the player
-    const openSpace = this.actionFindSpace(opponents);
-
-    // Determine if the player has the pace and dribbling skills to exploit the space
-    if (openSpace) {
-      const distanceToSpace = this.calculateDistance(
-        this.currentPosition,
-        openSpace
-      );
-
-      // Determine if the player should dribble into space based on their pace, dribbling, and the distance
-      return (
-        this.stats.pace > 60 && // Player has decent pace
-        this.stats.dribbling > 65 && // Player has good dribbling
-        distanceToSpace < 30 // The space is within a reasonable distance
-      );
-    }
-
-    return false;
+  decideActionDuringDeadBall(ball, opponents, teammates, gameContext) {
+    // Placeholder for set-piece positioning
+    this.actionHoldPosition(teammates);
   }
 
   // 5. Ball Handling and Shooting
   actionShoot(ball) {
-    // Determine the target position for the shot
-    const opponentGoal = this.getOpponentGoalPosition(); // Assume this returns the opponent's goal center
-    const shotAccuracy = this.stats.shooting; // Player's shooting accuracy
-    const shotPower = this.stats.shooting; // Using shooting stat for both accuracy and power
+    const opponentGoal = this.getOpponentGoalPosition();
+    const shotAccuracy = this.stats.shooting;
+    const shotPower = this.stats.shooting;
 
-    // Calculate the target with some randomness to simulate shot accuracy
-    const accuracyOffset = (100 - shotAccuracy) / 10; // Higher accuracy results in a smaller offset
-    const targetX = opponentGoal.x + (Math.random() * 2 - 1) * accuracyOffset; // Randomly offset the x-coordinate
-    const targetY = opponentGoal.y; // Y-coordinate is the goal's y-position
+    // Simulate shot accuracy
+    const accuracyOffset = (100 - shotAccuracy) / 10;
+    const targetX = opponentGoal.x + (Math.random() * 2 - 1) * accuracyOffset;
+    const targetY = opponentGoal.y;
 
-    // Calculate the ball's new velocity to simulate the shot
+    // Calculate shot direction and power
     const direction = {
       x: targetX - ball.position.x,
       y: targetY - ball.position.y,
     };
     const magnitude = Math.sqrt(direction.x ** 2 + direction.y ** 2);
-    const powerMultiplier = shotPower / 100; // Scale power to a factor (0-1)
+    const powerMultiplier = shotPower / 100;
 
     ball.setVelocity({
-      x: (direction.x / magnitude) * powerMultiplier * 30, // 30 is an arbitrary max speed for the ball
+      x: (direction.x / magnitude) * powerMultiplier * 30,
       y: (direction.y / magnitude) * powerMultiplier * 30,
     });
 
-    // Set the ball state to indicate a shot has been made
+    // Update ball and player state
     ball.isShot = true;
-    ball.carrier = null; // Ball is no longer with the player
+    ball.carrier = null;
     this.hasBall = false;
 
-    // Update the ball's position towards the goal (invoking the ball's movement in the simulation loop)
+    console.log(`${this.name} takes a shot towards the goal!`);
   }
 
   actionPass(ball, targetTeammate) {
@@ -420,362 +240,205 @@ class Player {
       return;
     }
 
-    // Calculate the direction and velocity of the pass
+    const passingSkill = this.stats.passing;
+
+    // Calculate pass direction and distance
     const direction = {
       x: targetTeammate.currentPosition.x - this.currentPosition.x,
       y: targetTeammate.currentPosition.y - this.currentPosition.y,
     };
-
     const distance = this.calculateDistance(
       this.currentPosition,
       targetTeammate.currentPosition
     );
 
-    // Determine pass power based on player's passing stat
-    const passPower = this.stats.passing; // Use player's passing stat
-    const speed = (passPower / 100) * 20; // Scale speed based on passPower (20 is arbitrary max speed)
+    // Simulate pass accuracy
+    const maxInaccuracy =
+      (distance / (this.field.length * 0.75)) * (100 - passingSkill);
+    const accuracyOffsetX = (Math.random() * 2 - 1) * (maxInaccuracy / 10);
+    const accuracyOffsetY = (Math.random() * 2 - 1) * (maxInaccuracy / 10);
 
-    // Normalize the direction and calculate velocity
-    const magnitude = Math.sqrt(direction.x ** 2 + direction.y ** 2);
+    // Adjust target position based on pass accuracy
+    const targetPosition = {
+      x: targetTeammate.currentPosition.x + accuracyOffsetX,
+      y: targetTeammate.currentPosition.y + accuracyOffsetY,
+    };
+
+    // Calculate new direction after accuracy adjustment
+    const adjustedDirection = {
+      x: targetPosition.x - this.currentPosition.x,
+      y: targetPosition.y - this.currentPosition.y,
+    };
+    const magnitude = Math.sqrt(
+      adjustedDirection.x ** 2 + adjustedDirection.y ** 2
+    );
+
+    // Set ball speed (you can adjust this based on passing skill or other factors)
+    const speed = 20; // Adjust as needed
+
+    // Set the ball's velocity
     ball.setVelocity({
-      x: (direction.x / magnitude) * speed,
-      y: (direction.y / magnitude) * speed,
+      x: (adjustedDirection.x / magnitude) * speed,
+      y: (adjustedDirection.y / magnitude) * speed,
     });
 
-    // Set ball state to indicate it's in transit
-    ball.isShot = false; // This is a pass, not a shot
-    ball.carrier = null; // Ball is no longer with the player
-    this.hasBall = false; // The player no longer has the ball
+    // Update ball and player state
+    ball.isShot = false;
+    ball.carrier = null;
+    this.hasBall = false;
 
-    console.log(
-      `${this.name} passes the ball towards ${
-        targetTeammate.name
-      } at (${targetTeammate.currentPosition.x.toFixed(
-        2
-      )}, ${targetTeammate.currentPosition.y.toFixed(2)}).`
-    );
+    console.log(`${this.name} passes the ball towards ${targetTeammate.name}.`);
   }
 
-  actionDribble(ball, opponents, team) {
-    let targetPosition;
+  actionDribble(ball, opponents, teammates) {
+    const targetPosition = this.findBestDribblePosition(opponents);
 
-    // Check if the player should dribble into space
-    if (this.shouldDribbleIntoSpace(opponents)) {
-      targetPosition = this.actionFindSpace(ball, opponents, team);
-    }
-    // Check if the player should take on a defender
-    else if (this.shouldTakeOnDefender(opponents)) {
-      targetPosition = this.actionTakeOnDefender(ball, opponents, team);
-    }
-    // Check if the player needs to dribble out of a press
-    else if (this.shouldDribbleOutOfPress(opponents)) {
-      targetPosition = this.actionEscapePress(ball, opponents, team);
-    }
-    // If none of the conditions are met, try to pass instead
-    else {
-      const targetTeammate = this.findBestTeammateToPass(team, opponents);
+    if (targetPosition) {
+      this.actionMoveTowardsTarget(targetPosition, true);
+    } else {
+      // If no good dribble option, consider passing
+      const targetTeammate = this.findBestTeammateToPass(teammates, opponents);
       if (targetTeammate) {
         this.actionPass(ball, targetTeammate);
       } else {
-        // If no valid pass, default to holding position or another action
-        this.actionHoldPosition();
+        // Hold position
+        this.actionHoldPosition(teammates);
       }
-      return;
     }
-
-    // Move towards the determined target position
-    this.actionMoveTowardsTarget(targetPosition);
   }
 
+  // 6. Defensive Actions
+  actionPress(ball, opponents) {
+    const opponentWithBall = opponents.find((opponent) => opponent.hasBall);
+
+    if (opponentWithBall) {
+      // Move towards the opponent with the ball
+      this.actionMoveTowardsTarget(opponentWithBall.currentPosition);
+    } else {
+      // Move towards the ball's position
+      this.actionMoveTowardsTarget(ball.position);
+    }
+  }
+
+  actionDropIntoDefense() {
+    const defensivePosition = this.getDefensivePosition();
+    this.actionMoveTowardsTarget(defensivePosition);
+  }
+
+  actionPerformDefensiveAction(opponents, ball) {
+    const ballDistance = this.calculateDistance(
+      this.currentPosition,
+      ball.position
+    );
+
+    if (ballDistance < 5 && this.stats.defending > 60) {
+      this.attemptDefensivePlay(opponents, ball);
+    } else {
+      this.actionDropIntoDefense();
+    }
+  }
+
+  // 7. Positioning and Movement
   actionMoveTowardsTarget(targetPosition, isDribbling = false) {
     const direction = {
       x: targetPosition.x - this.currentPosition.x,
       y: targetPosition.y - this.currentPosition.y,
     };
 
-    // Calculate magnitude (distance to target) and prevent division by zero
     const magnitude = Math.sqrt(direction.x ** 2 + direction.y ** 2);
-    if (magnitude === 0) {
-      return;
-    }
+    if (magnitude === 0) return;
 
-    // Adjust speed based on whether this is a dribbling or non-dribbling action
     const speed = isDribbling
       ? this.stats.dribbling * 0.1
       : this.stats.pace * 0.05;
 
-    // Update the player's position by moving towards the target
-    const moveX = (direction.x / magnitude) * speed;
-    const moveY = (direction.y / magnitude) * speed;
-    this.currentPosition.x += moveX;
-    this.currentPosition.y += moveY;
+    // Update position
+    this.currentPosition.x += (direction.x / magnitude) * speed;
+    this.currentPosition.y += (direction.y / magnitude) * speed;
 
-    // Calculate the remaining distance to the target after moving
-    const distanceToTarget = this.calculateDistance(
-      this.currentPosition,
-      targetPosition
-    );
+    // Ensure player stays within field boundaries
+    this.actionMoveToWithinBoundaries();
+  }
 
-    // If close enough to the target, snap to the target position
-    if (distanceToTarget <= speed) {
-      this.currentPosition = { ...targetPosition };
-    } else {
-      // Continue moving towards the target in the next frame
+  actionHoldPosition(teammates) {
+    // Updated method to maintain formation and move as a unit
+    if (!this.formationPosition) {
+      // If no formation position is set, hold current position
+      return;
     }
+
+    // Calculate target position based on formation position and team tactics
+    const targetPosition = this.getFormationAdjustedPosition(teammates);
+
+    // Move towards the target position
+    this.actionMoveTowardsTarget(targetPosition);
   }
 
-  actionTakeOnDefender(ball, opponents, team) {
-    const defender = this.findNearestOpponent(opponents);
-    const offset = 2;
-    const targetPosition = {
-      x: defender.currentPosition.x + offset,
-      y: defender.currentPosition.y,
-    };
-    return this.field.isWithinBounds(targetPosition)
-      ? targetPosition
-      : this.currentPosition;
-  }
+  getFormationAdjustedPosition(teammates) {
+    // Base position from formation
+    let targetX = this.formationPosition.x;
+    let targetY = this.formationPosition.y;
 
-  actionEscapePress(ball, opponents, team) {
-    const escapeRoute = {
-      x: this.currentPosition.x,
-      y: this.currentPosition.y + 10,
+    // Adjust position based on team tactics
+    const tactics = this.teamTactics;
+
+    // Width adjustment
+    if (tactics && tactics.attackingWidth !== undefined) {
+      const widthMultiplier = tactics.attackingWidth / 50; // Assuming tactics.attackingWidth ranges from 0 to 100
+      targetX *= widthMultiplier;
+    }
+
+    // Depth adjustment (defensive line)
+    if (tactics && tactics.defensiveLine !== undefined) {
+      const depthMultiplier = tactics.defensiveLine / 50; // Assuming tactics.defensiveLine ranges from 0 to 100
+      targetY *= depthMultiplier;
+    }
+
+    // Team movement based on ball position
+    // Example: Shift up if team is in possession and attacking
+    if (tactics && tactics.pressure !== undefined) {
+      const ballCarrier = teammates.find((player) => player.hasBall);
+      const ballPositionY = ballCarrier ? ballCarrier.currentPosition.y : 0;
+
+      const pressureMultiplier = tactics.pressure / 100; // 0 (low) to 1 (high)
+      targetY += ballPositionY * pressureMultiplier * 0.1;
+    }
+
+    // Return the adjusted position
+    return {
+      x: targetX,
+      y: targetY,
     };
-    return this.field.isWithinBounds(escapeRoute)
-      ? escapeRoute
-      : this.currentPosition;
   }
 
   actionMakeRun(opponents) {
-    // Find the best open space to run into
-    const spaceToMoveInto = this.actionFindSpace(opponents);
-
-    if (!spaceToMoveInto) {
-      return;
+    const space = this.findOpenSpace(opponents);
+    if (space) {
+      this.actionMoveTowardsTarget(space);
+    } else {
+      this.actionHoldPosition();
     }
-
-    // Move towards the open space
-    this.actionMoveTowardsTarget(spaceToMoveInto, false);
   }
 
-  actionFindSpace(opponents) {
-    const searchRadius = 20; // The radius within which to search for open space (can be adjusted)
-    const angleIncrement = 15; // How many degrees to increment per search step
-    let bestSpace = null;
-    let maxDistance = 0;
-
-    // Scan forward in a semicircle in front of the player
-    for (let angle = -90; angle <= 90; angle += angleIncrement) {
-      const radian = (angle * Math.PI) / 180;
-      const potentialSpace = {
-        x: this.currentPosition.x + searchRadius * Math.cos(radian),
-        y: this.currentPosition.y + searchRadius * Math.sin(radian),
+  actionSupportBallCarrier(ball, teammates) {
+    const ballCarrier = teammates.find((player) => player.hasBall);
+    if (ballCarrier) {
+      const offset = 10;
+      const direction = {
+        x: this.currentPosition.x - ballCarrier.currentPosition.x,
+        y: this.currentPosition.y - ballCarrier.currentPosition.y,
       };
-
-      if (
-        this.field.isWithinBounds(potentialSpace) &&
-        !this.isSpaceOccupied(potentialSpace, opponents)
-      ) {
-        const distance = this.calculateDistance(
-          this.currentPosition,
-          potentialSpace
-        );
-        if (distance > maxDistance) {
-          bestSpace = potentialSpace;
-          maxDistance = distance;
-        }
-      }
-    }
-
-    // Move to the best space found
-    if (bestSpace) {
-      this.actionMoveTowardsTarget(bestSpace, false);
+      const magnitude = Math.sqrt(direction.x ** 2 + direction.y ** 2);
+      const targetPosition = {
+        x: ballCarrier.currentPosition.x + (direction.x / magnitude) * offset,
+        y: ballCarrier.currentPosition.y + (direction.y / magnitude) * offset,
+      };
+      this.actionMoveTowardsTarget(targetPosition);
     } else {
-      // No space found; fallback behavior
+      this.actionHoldPosition(teammates);
     }
   }
 
-  actionPress(ball, opponents, team) {
-    // Find the opponent who currently has the ball
-    const opponentWithBall = opponents.find((opponent) => opponent.hasBall);
-
-    if (opponentWithBall) {
-      // Move towards the opponent with the ball
-      const targetPosition = opponentWithBall.currentPosition;
-
-      // Move towards the opponent's position
-      this.actionMoveTowardsTarget(targetPosition, false);
-    } else {
-      // If no specific opponent has the ball, press the ball's current position
-      this.actionMoveTowardsTarget(ball.position, false);
-    }
-  }
-
-  actionDropIntoDefense() {
-    // Retrieve the team's defensive depth from tactics (assume a range of 0-100, where 100 is the deepest)
-    const { defensiveDepth = 50 } = this.team.tactics || {};
-
-    // Defensive depth determines how far back the team plays:
-    // 0 = highest line, 100 = deepest line
-    const normalizedDefensiveDepth = defensiveDepth / 100; // Convert to 0-1 scale
-
-    // Define the base defensive line position based on the team's side
-    let baseDefensiveLineY;
-    if (this.team.name === "Home Team") {
-      baseDefensiveLineY = -this.field.length / 2; // Home team defends in the negative half
-    } else {
-      baseDefensiveLineY = this.field.length / 2; // Away team defends in the positive half
-    }
-
-    // Adjust defensive line based on tactics
-    const defensiveLineY = baseDefensiveLineY * normalizedDefensiveDepth;
-
-    // Adjust target position based on player's role and team's defensive line
-    const formationPositions = this.team.getFormationPositions();
-    const rolePosition = formationPositions[this.position];
-
-    if (!rolePosition) {
-      // console.error(`Position ${this.position} not found in the formation.`);
-      return;
-    }
-
-    // Calculate the target defensive position based on team's defensive depth and player's role
-    const targetPosition = {
-      x: rolePosition.x * this.field.width, // Maintain the formation's x position
-      y: defensiveLineY, // Adjust y position based on defensive line depth
-    };
-
-    // Move towards the defensive position
-
-    this.actionMoveTowardsTarget(targetPosition, false);
-  }
-
-  actionHoldPosition() {
-    // No movement is needed, but we can log the current position to provide feedback
-    const { x, y } = this.currentPosition;
-  }
-
-  // 6. Defensive Actions
-  actionPerformDefensiveAction(opponents, ball) {
-    const vicinityRadius = this.calculateDefensiveVicinityRadius(this.field);
-    const ballDistance = this.calculateDistance(
-      this.currentPosition,
-      ball.position
-    );
-
-    if (ballDistance <= vicinityRadius) {
-      if (this.canIntercept(ball)) {
-        this.actionIntercept(ball);
-      } else if (this.canSlideTackle(opponents, ball)) {
-        const isFoul = this.actionTackle(opponents, ball, true);
-        if (isFoul) return true;
-      } else if (this.canStandingTackle(opponents, ball)) {
-        const isFoul = this.actionTackle(opponents, ball, false);
-        if (isFoul) return true;
-      } else if (this.canBlockShot(ball)) {
-        this.actionBlockShot(ball);
-      } else if (this.canClear(ball)) {
-        this.actionClearBall(ball);
-      }
-    }
-    return false;
-  }
-
-  actionIntercept(ball) {
-    // Update the player's position to the ball's current position
-    this.currentPosition = { ...ball.position };
-
-    // Take possession of the ball
-    this.hasBall = true;
-    ball.changeCarrier(this); // Update the ball's carrier to this player
-
-    // Stop the ball's movement
-    ball.stop();
-
-    // console.log(
-    //   `${this.name} now has the ball at (${this.currentPosition.x.toFixed(
-    //     2
-    //   )}, ${this.currentPosition.y.toFixed(2)}).`
-    // );
-  }
-
-  actionTackle(opponents, ball, isSlideTackle) {
-    const foulProbability = 0.2;
-    const isFoul = Math.random() < foulProbability;
-
-    if (isFoul) {
-      return true;
-    } else {
-      return false;
-    }
-  }
-
-  actionBlockShot(ball) {
-    // Update player's position to the ball's current position, simulating the block
-    this.currentPosition = { ...ball.position };
-
-    // Stop the ball's movement to indicate it was blocked
-    ball.stop();
-
-    // Optionally, deflect the ball slightly to indicate a block (random small deflection)
-    const deflectionAngle = Math.random() * Math.PI; // Random angle in radians
-    const deflectionPower = 2; // Adjust this to simulate deflection power
-    ball.setVelocity({
-      x: Math.cos(deflectionAngle) * deflectionPower,
-      y: Math.sin(deflectionAngle) * deflectionPower,
-    });
-
-    // Set the ball as "loose" after the block
-    ball.isLoose = true;
-    ball.carrier = null; // No one has control after the block
-
-    //   console.log(
-    //     `${this.name} deflects the ball to position (${ball.position.x.toFixed(
-    //       2
-    //     )}, ${ball.position.y.toFixed(2)}).`
-    //   );
-  }
-
-  actionClearBall(ball) {
-    // Determine a direction to clear the ball (e.g., away from the player's goal)
-    // For simplicity, let's assume the player clears the ball forward and to the side
-    const clearDirection = Math.random() > 0.5 ? 1 : -1; // Randomly choose left or right
-    const clearDistance = 30; // Distance in meters to clear the ball
-
-    // Calculate the new position for the ball
-    const targetPosition = {
-      x: this.currentPosition.x + clearDirection * 10, // 10 meters to the side
-      y: this.currentPosition.y + clearDistance, // 30 meters forward
-    };
-
-    // Check if the target position is within the field boundaries
-    if (this.field.isWithinBounds(targetPosition)) {
-      // Update the ball's position and velocity to simulate a clearance
-      ball.position = targetPosition;
-      ball.setVelocity({
-        x: clearDirection * 20, // Adjust velocity values to match the direction and power
-        y: clearDistance > 0 ? 30 : -30, // Positive or negative based on the direction
-      });
-
-      // Set the ball as loose after the clearance
-      ball.isLoose = true;
-      ball.carrier = null; // No one has control after the clearance
-
-      // console.log(
-      //   `${this.name} clears the ball to position (${ball.position.x.toFixed(
-      //     2
-      //   )}, ${ball.position.y.toFixed(2)}).`
-      // );
-    } else {
-      // If the target position is out of bounds, clear the ball towards the field center
-      // console.log(
-      //   `${this.name}'s clearance goes out of bounds. Resetting ball to a safer position.`
-      // );
-      ball.resetBall();
-    }
-  }
-
-  // 7. Positioning and Movement
   actionMoveToWithinBoundaries() {
     if (!this.isWithinBoundaries()) {
       if (this.currentPosition.x < -this.field.width / 2) {
@@ -791,317 +454,327 @@ class Player {
     }
   }
 
-  // 8. Competency Checks
-  enforceCompetencies(ball, team) {
-    const ballState = ball.isInPlay ? BallState.IN_PLAY : BallState.DEAD;
-    const playerState = this.hasBall
-      ? PlayerState.HAS_BALL
-      : ball.carrier && ball.carrier.teamId === this.teamId
-      ? PlayerState.TEAM_HAS_BALL
-      : PlayerState.OPPONENT_HAS_BALL;
+  // 8. Set Pieces
+  // Set piece corner kick method
+  setPieceCornerKick(ball, side, teammates, opponents) {
+    console.log(`${this.name} is taking a corner kick from the ${side} side.`);
 
-    switch (ballState) {
-      case BallState.IN_PLAY:
-        this.handleInPlayState(playerState, ball, team);
-        break;
-      case BallState.DEAD:
-        this.handleDeadBallState(playerState, ball, team);
-        break;
-    }
-  }
+    // Determine the corner position based on the side of the field
+    const cornerPosition = {
+      x: side === "left" ? -this.field.width / 2 : this.field.width / 2,
+      y:
+        this.teamSide === "home"
+          ? -this.field.length / 2
+          : this.field.length / 2,
+    };
 
-  handleInPlayState(playerState, ball, team) {
-    switch (playerState) {
-      case PlayerState.HAS_BALL:
-        this.handleHasBallState(ball, team);
-        break;
-      case PlayerState.TEAM_HAS_BALL:
-        this.handleTeamHasBallState(ball, team);
-        break;
-      case PlayerState.OPPONENT_HAS_BALL:
-        this.handleOpponentHasBallState(ball, team);
-        break;
-      default:
-        this.actionHoldPosition();
-        break;
-    }
-  }
+    // Move the ball to the corner position
+    ball.position = { ...cornerPosition };
 
-  handleDeadBallState(playerState, ball, team) {
-    switch (playerState) {
-      case PlayerState.HAS_BALL:
-        this.handleDeadBallHasBallState(ball, team);
-        break;
-      case PlayerState.TEAM_HAS_BALL:
-        this.handleDeadBallTeamHasBallState(ball, team);
-        break;
-      case PlayerState.OPPONENT_HAS_BALL:
-        this.handleDeadBallOpponentHasBallState(ball, team);
-        break;
-      default:
-        this.actionHoldPosition();
-        break;
-    }
-  }
-
-  handleHasBallState(ball, team) {
-    // Handle player actions when they have the ball
-    this.checkShotCompetency(ball);
-    this.checkPassCompetency();
-    this.checkOutletCompetency(team);
-  }
-
-  handleTeamHasBallState(ball, team) {
-    // Handle player actions when their team has the ball
-    this.checkFormationCompetency(team);
-    this.checkBoundariesCompetency();
-  }
-
-  handleOpponentHasBallState(ball, team) {
-    // Handle player actions when the opponent has the ball
-    this.checkDefensiveCompetency(ball);
-    this.checkOffsideCompetency(ball);
-    this.checkBoundariesCompetency();
-  }
-
-  handleDeadBallHasBallState(ball, team) {
-    // Handle player actions during a dead ball situation
-    this.actionMoveToFormationPosition();
-  }
-
-  handleDeadBallTeamHasBallState(ball, team) {
-    // Handle team actions during a dead ball situation
-    this.actionMoveToFormationPosition();
-  }
-
-  handleDeadBallOpponentHasBallState(ball, team) {
-    // Handle opponent actions during a dead ball situation
-    this.actionMoveToFormationPosition();
-  }
-
-  // Competency check methods
-  checkDefensiveCompetency(ball) {
-    if (
-      this.teamId === ball.carrier.teamId &&
-      this.isPerformingDefensiveAction()
-    ) {
-      this.stopDefensiveAction();
-    }
-  }
-
-  checkPassCompetency() {
-    if (this.isPassing() && this.passTarget.teamId !== this.teamId) {
-      this.stopPassing();
-    }
-  }
-
-  checkShotCompetency(ball) {
-    if (this.isShooting() && !this.isTowardsOpponentGoal(ball)) {
-      this.stopShooting();
-    }
-  }
-
-  checkOutletCompetency(team) {
-    if (this.hasBall) {
-      const nearestTeammate = this.findNearestTeammate(team.players);
-      const angle = this.calculateAngle(
-        this.currentPosition,
-        nearestTeammate.currentPosition,
-        this.findNearestOpponent(team.opponents).currentPosition
-      );
+    // Decide the best target for the corner kick
+    // For simplicity, target the teammate with the best heading ability
+    let bestTarget = teammates.reduce((best, teammate) => {
       if (
-        !(60 <= angle && angle <= 150) ||
-        !this.hasDirectLine(nearestTeammate)
+        teammate !== this &&
+        (best === null ||
+          (teammate.stats.heading || 0) > (best.stats.heading || 0))
       ) {
-        this.stopPassing();
+        return teammate;
+      } else {
+        return best;
       }
+    }, null);
+
+    if (!bestTarget) {
+      // If no suitable teammate found, target the center of the penalty area
+      bestTarget = {
+        currentPosition: {
+          x: 0,
+          y:
+            this.teamSide === "home"
+              ? -this.field.length / 4
+              : this.field.length / 4,
+        },
+      };
     }
-  }
 
-  checkFormationCompetency(team) {
-    if (!this.isInFormation(team.formation)) {
-      this.actionMoveToFormationPosition();
-    }
-  }
+    // Calculate the direction and power of the corner kick
+    const direction = {
+      x: bestTarget.currentPosition.x - ball.position.x,
+      y: bestTarget.currentPosition.y - ball.position.y,
+    };
+    const magnitude = Math.sqrt(direction.x ** 2 + direction.y ** 2);
 
-  checkOffsideCompetency(ball) {
-    this.isOffside = this.isOffside(ball);
-    if (this.isOffside) {
-      this.actionMoveToOnsidePosition();
-    }
-  }
+    const passPower = this.stats.passing;
+    const speed = (passPower / 100) * 20;
 
-  checkBoundariesCompetency() {
-    if (!this.isWithinBoundaries()) {
-      this.actionMoveToWithinBoundaries();
-    }
-  }
+    // Set the ball's velocity
+    ball.setVelocity({
+      x: (direction.x / magnitude) * speed,
+      y: (direction.y / magnitude) * speed,
+    });
 
-  // 9. Helper Methods
-  calculateDefensiveVicinityRadius(field) {
-    const fieldSize = Math.min(field.width, field.length);
-    const vicinityPercentage = 0.01; // Vicinity covers 1% of the smaller field dimension
-    const baseRadius = fieldSize * vicinityPercentage;
-    return baseRadius * (this.stats.defending / 100); // Adjust based on defending stat
-  }
+    // Update ball and player state
+    ball.isShot = false;
+    ball.carrier = null;
+    this.hasBall = false;
 
-  calculateDistance(position1, position2) {
-    return Math.sqrt(
-      Math.pow(position2.x - position1.x, 2) +
-        Math.pow(position2.y - position1.y, 2)
+    console.log(
+      `${this.name} delivers a corner kick towards ${
+        bestTarget.name || "the penalty area"
+      }.`
     );
   }
 
-  isBallInPath(ball) {
-    return true; // Placeholder for checking if the ball is in the player's path
+  // Set piece goal kick method
+  setPieceGoalKick(ball, teammates, opponents) {
+    console.log(`${this.name} is taking a goal kick.`);
+
+    // Position the ball at the appropriate goal area
+    const goalKickPosition = {
+      x: 0,
+      y:
+        this.teamSide === "home"
+          ? -this.field.length / 2 + 5
+          : this.field.length / 2 - 5,
+    };
+
+    // Move the ball to the goal kick position
+    ball.position = { ...goalKickPosition };
+
+    // Decide the best target for the goal kick
+    // For simplicity, aim for the midfielder with the best aerial ability
+    let bestTarget = teammates.reduce((best, teammate) => {
+      if (
+        teammate.position.includes("CM") &&
+        (best === null ||
+          (teammate.stats.heading || 0) > (best.stats.heading || 0))
+      ) {
+        return teammate;
+      } else {
+        return best;
+      }
+    }, null);
+
+    // If no midfielder found, target any teammate upfield
+    if (!bestTarget) {
+      bestTarget = teammates.find(
+        (teammate) => teammate !== this && teammate.position !== "GK"
+      );
+    }
+
+    // If still no target, aim for the center circle
+    if (!bestTarget) {
+      bestTarget = {
+        currentPosition: {
+          x: 0,
+          y: 0,
+        },
+      };
+    }
+
+    // Calculate the direction and power of the goal kick
+    const direction = {
+      x: bestTarget.currentPosition.x - ball.position.x,
+      y: bestTarget.currentPosition.y - ball.position.y,
+    };
+    const magnitude = Math.sqrt(direction.x ** 2 + direction.y ** 2);
+
+    const kickPower = this.stats.kicking || this.stats.passing;
+    const speed = (kickPower / 100) * 30; // Goal kicks are typically powerful
+
+    // Set the ball's velocity
+    ball.setVelocity({
+      x: (direction.x / magnitude) * speed,
+      y: (direction.y / magnitude) * speed,
+    });
+
+    // Update ball and player state
+    ball.isShot = false;
+    ball.carrier = null;
+    this.hasBall = false;
+
+    console.log(
+      `${this.name} launches the ball towards ${
+        bestTarget.name || "the midfield"
+      }.`
+    );
   }
 
-  isOpponentInVicinity(opponent, vicinityMultiplier) {
-    const opponentDistance = this.calculateDistance(
+  // Set piece free kick method (placeholder)
+  setPieceFreeKick(ball, position, teammates, opponents) {
+    console.log(`${this.name} is taking a free kick.`);
+
+    // For simplicity, we'll have the player pass the ball to a teammate
+    const targetTeammate = this.findBestTeammateToPass(teammates, opponents);
+
+    if (targetTeammate) {
+      this.actionPass(ball, targetTeammate);
+    } else {
+      // If no teammate to pass to, the player can dribble
+      this.actionDribble(ball, opponents, teammates);
+    }
+  }
+
+  // 9. Fitness and Injury Management
+  updateFitness() {
+    if (this.hasBall) {
+      this.fitness -= 0.1; // Dribbling consumes more energy
+    } else {
+      this.fitness -= 0.05; // General movement
+    }
+
+    if (this.fitness < 0) {
+      this.fitness = 0;
+    }
+
+    if (this.fitness < 10 && Math.random() < 0.01) {
+      this.injured = true;
+      console.log(`${this.name} has been injured due to fatigue.`);
+    }
+  }
+
+  update(ball, opponents, teammates) {
+    if (this.injured) {
+      this.actionHoldPosition(teammates);
+    } else {
+      this.decideAction(ball, opponents, teammates);
+      this.updateFitness();
+    }
+  }
+
+  // 10. Helper Methods
+  shouldPass(teammates, opponents, gameContext) {
+    const passingSkill = this.stats.passing;
+    const dribblingSkill = this.stats.dribbling;
+    const pressureFromOpponents =
+      this.calculatePressureFromOpponents(opponents);
+    const teamPassingPreference = this.teamTactics.passingPreference || 50; // 0 (prefer dribbling), 100 (prefer passing)
+
+    // Calculate base pass and dribble tendencies
+    let passTendency =
+      (pressureFromOpponents / 100) * 40 + // More pressure increases passing tendency
+      (teamPassingPreference / 100) * 30 + // Team tactics influence
+      (passingSkill / 100) * 20 + // Passing skill influence
+      ((100 - dribblingSkill) / 100) * 10; // Less dribbling skill favors passing
+
+    let dribbleTendency =
+      ((100 - pressureFromOpponents) / 100) * 40 + // Less pressure increases dribbling tendency
+      ((100 - teamPassingPreference) / 100) * 30 + // Team tactics influence
+      (dribblingSkill / 100) * 20 + // Dribbling skill influence
+      ((100 - passingSkill) / 100) * 10; // Less passing skill favors dribbling
+
+    // Adjust tendencies based on game context
+    switch (gameContext) {
+      case "kickoff":
+        passTendency += 50; // Significantly favor passing at kickoff
+        break;
+      case "defensiveThird":
+        passTendency += 20; // Encourage safer play in defensive third
+        dribbleTendency -= 20;
+        break;
+      case "attackingThird":
+        dribbleTendency += 20; // Encourage taking on opponents in attacking third
+        break;
+      case "setPiece":
+        // Additional context-specific adjustments can be made here
+        break;
+      case "openPlay":
+      default:
+        // No adjustment needed
+        break;
+    }
+
+    // Decide to pass if pass tendency is higher than dribble tendency
+    return (
+      passTendency > dribbleTendency &&
+      this.findBestTeammateToPass(teammates, opponents)
+    );
+  }
+
+  calculatePressureFromOpponents(opponents) {
+    // Calculate the cumulative pressure from nearby opponents
+    const pressureRadius = 15; // Units
+    let pressure = 0;
+
+    opponents.forEach((opponent) => {
+      const distance = this.calculateDistance(
+        this.currentPosition,
+        opponent.currentPosition
+      );
+      if (distance < pressureRadius) {
+        // Closer opponents contribute more to pressure
+        pressure += ((pressureRadius - distance) / pressureRadius) * 100;
+      }
+    });
+
+    // Normalize pressure to a value between 0 and 100
+    return Math.min(pressure, 100);
+  }
+
+  shouldShoot(ball, gameContext) {
+    const distanceToGoal = this.calculateDistance(
       this.currentPosition,
-      opponent.currentPosition
+      this.getOpponentGoalPosition()
     );
-    const vicinityRadius = this.calculateDefensiveVicinityRadius(this.field);
-    return opponentDistance <= vicinityRadius * vicinityMultiplier;
-  }
+    const shootingSkill = this.stats.shooting;
 
-  isInFormation(formation) {
-    // Placeholder for checking if the player is in the right formation position
-    return true;
-  }
+    let shootTendency = (shootingSkill / 100) * 50;
 
-  isTowardsOpponentGoal(ball) {
-    // Placeholder logic for determining if the shot is towards the opponent's goal
-    return true;
-  }
-
-  findNearestTeammate(teammates) {
-    // Placeholder for finding the nearest teammate
-    return teammates[0]; // Example: return the first teammate
-  }
-
-  findNearestOpponent(opponents) {
-    // Placeholder for finding the nearest opponent
-    return opponents[0]; // Example: return the first opponent
-  }
-
-  calculateAngle(position1, position2, opponentPosition) {
-    // Placeholder for calculating the angle between players and opponents
-    return 90; // Example: return a fixed angle for simplicity
-  }
-
-  hasDirectLine(teammate) {
-    // Placeholder logic for checking if there's a direct line to the teammate
-    return true;
-  }
-
-  stopPassing() {
-    console.log(`${this.name} stops passing.`);
-  }
-
-  stopShooting() {
-    console.log(`${this.name} stops shooting.`);
-  }
-
-  stopDefensiveAction() {
-    console.log(`${this.name} stops defending.`);
-  }
-
-  isWithinBoundaries() {
-    if (!this.currentPosition) {
-      console.error("Current position is not set.");
-      return false;
+    // Adjust shoot tendency based on game context
+    if (gameContext === "attackingThird") {
+      shootTendency += 30; // Encourage shooting in attacking third
+    } else if (gameContext === "defensiveThird") {
+      shootTendency -= 50; // Discourage shooting from defensive third
     }
+
+    // Decide to shoot if tendency is high and within shooting range
+    return shootTendency > 50 && distanceToGoal < 30; // Adjust distance as needed
+  }
+
+  shouldMakeRun(opponents) {
     return (
-      this.currentPosition.x >= -this.field.width / 2 &&
-      this.currentPosition.x <= this.field.width / 2 &&
-      this.currentPosition.y >= -this.field.length / 2 &&
-      this.currentPosition.y <= this.field.length / 2
+      this.hasSpaceToRun(opponents) &&
+      !this.isBeingMarked(opponents) &&
+      this.stats.pace > 60
     );
   }
 
-  isOffside(ball) {
-    return (
-      this.position === "attacker" &&
-      this.currentPosition.x > ball.position.x &&
-      !this.hasBall
+  shouldPress(ball, opponents) {
+    const distanceToBall = this.calculateDistance(
+      this.currentPosition,
+      ball.position
     );
+    return distanceToBall < 20 && this.stats.defending > 50;
   }
 
-  findBestTeammateToPass(team, opponents) {
+  findBestTeammateToPass(teammates, opponents) {
     let bestTeammate = null;
-    let bestScore = -Infinity;
+    let highestScore = -Infinity;
 
-    // Iterate through each teammate and calculate their score based on tactics and passing ability
-    team.forEach((teammate) => {
-      // Skip if the teammate is the current player
+    teammates.forEach((teammate) => {
       if (teammate === this) return;
 
-      // Calculate the distance to the teammate
       const distance = this.calculateDistance(
         this.currentPosition,
         teammate.currentPosition
       );
 
-      // Check if there is a clear passing lane
-      const hasClearLane = this.hasClearPassingLane(teammate, opponents);
-
-      // Skip if no clear lane exists
-      if (!hasClearLane) return;
-
-      // Tactics Influence
-      const passingStyle = this.team.tactics.passingStyle; // (0 - 100, short vs long)
-      const buildUpPlayDirection = this.team.tactics.buildUpPlayDirection; // (0 - 100, central vs wide)
-      const buildUpPlaySpeed = this.team.tactics.buildUpPlaySpeed; // (0 - 100, slow vs fast)
-
-      // Get the field width for determining wide vs central areas
-      const fieldWidth = this.field.width;
-
-      // Determine if the teammate is in a wide position (if their x coordinate is in the outer 20% of the field)
-      const isWide = Math.abs(teammate.currentPosition.x) > fieldWidth * 0.4;
-
-      // Scoring Logic
-      let score = 0;
-
-      // **Passing Style Impact**
-      if (passingStyle < 50) {
-        // Short passing preference: closer teammates score higher
-        score += Math.max(100 - distance, 0);
-      } else {
-        // Long passing preference: farther teammates score higher
-        score += Math.max(distance, 0);
-      }
-
-      // **Build-Up Play Direction Impact**
-      if (buildUpPlayDirection < 50 && !isWide) {
-        // Prefer central play, boost score if the teammate is in a central position
-        score += 20;
-      } else if (buildUpPlayDirection >= 50 && isWide) {
-        // Prefer wide play, boost score if the teammate is in a wide position
-        score += 20;
-      }
-
-      // **Build-Up Play Speed Impact**
-      if (buildUpPlaySpeed >= 50) {
-        // Fast play: prioritize teammates further up the field
-        const teammateDistanceToGoal = this.calculateDistance(
+      const opponentProximity = opponents.reduce((minDistance, opponent) => {
+        const dist = this.calculateDistance(
           teammate.currentPosition,
-          teammate.getOpponentGoalPosition()
+          opponent.currentPosition
         );
-        score += (100 - teammateDistanceToGoal) / 2;
-      }
+        return dist < minDistance ? dist : minDistance;
+      }, Infinity);
 
-      // **Player's Passing Skill Impact**
-      const passingSkill = this.stats.passing;
-      score += passingSkill / 10; // Give a minor boost to the score based on the passer's ability
+      // Calculate a score based on distance to teammate and distance from opponents
+      const score =
+        (opponentProximity / 100) * 70 - // Teammates further from opponents are preferred
+        (distance / 100) * 30; // Closer teammates are preferred
 
-      // **Teammate's Free Space Impact**
-      const freeSpace = this.calculateFreeSpace(teammate, opponents); // Assume this method gives a score for space
-      score += freeSpace; // More space = better passing option
-
-      // Select the best scoring teammate
-      if (score > bestScore) {
-        bestScore = score;
+      if (score > highestScore) {
+        highestScore = score;
         bestTeammate = teammate;
       }
     });
@@ -1110,10 +783,7 @@ class Player {
   }
 
   hasClearPassingLane(teammate, opponents) {
-    // Simple logic: check if there's any opponent in a direct line between the player and the teammate
-    const laneClearanceBuffer = 2; // How much space around the passing line to consider it "clear"
-
-    // Define the passing line as a vector
+    const laneClearanceBuffer = 2; // Units of clearance
     const direction = {
       x: teammate.currentPosition.x - this.currentPosition.x,
       y: teammate.currentPosition.y - this.currentPosition.y,
@@ -1124,9 +794,7 @@ class Player {
       y: direction.y / magnitude,
     };
 
-    // Check each opponent to see if they are in the passing lane
     return !opponents.some((opponent) => {
-      // Vector from player to opponent
       const playerToOpponent = {
         x: opponent.currentPosition.x - this.currentPosition.x,
         y: opponent.currentPosition.y - this.currentPosition.y,
@@ -1135,60 +803,43 @@ class Player {
         playerToOpponent.x * unitDirection.x +
         playerToOpponent.y * unitDirection.y;
       const projectionLength = dotProduct / magnitude;
-
-      // Find the closest point on the passing line to the opponent
       const closestPointOnLine = {
         x: this.currentPosition.x + unitDirection.x * projectionLength,
         y: this.currentPosition.y + unitDirection.y * projectionLength,
       };
-
-      // Calculate the distance from the opponent to this closest point
       const distanceToLine = this.calculateDistance(
         opponent.currentPosition,
         closestPointOnLine
       );
-
-      // If the opponent is within the clearance buffer, they block the lane
       return distanceToLine < laneClearanceBuffer;
     });
   }
 
-  isSpaceOccupied(position, opponents, radius) {
-    // Check if any opponent is within the specified radius of the given position
-    return opponents.some((opponent) => {
-      const distanceToOpponent = this.calculateDistance(
-        position,
-        opponent.currentPosition
-      );
-      return distanceToOpponent < radius; // Returns true if any opponent is within the radius
-    });
+  calculateDistance(position1, position2) {
+    return Math.sqrt(
+      (position2.x - position1.x) ** 2 + (position2.y - position1.y) ** 2
+    );
   }
 
-  calculatePressure(opponents) {
-    // Define the vicinity range within which opponents are considered to be applying pressure
-    const vicinityRange = 5; // Example radius within which opponents are considered to apply pressure
+  calculateAngleTo(fromPosition, toPosition) {
+    const dx = toPosition.x - fromPosition.x;
+    const dy = toPosition.y - fromPosition.y;
+    const angleInRadians = Math.atan2(dy, dx);
+    const angleInDegrees = (angleInRadians * 180) / Math.PI;
+    return angleInDegrees;
+  }
 
-    let pressure = 0;
-
-    // Iterate through the opponents to calculate the pressure
-    opponents.forEach((opponent) => {
-      const distance = this.calculateDistance(
-        this.currentPosition,
-        opponent.currentPosition
-      );
-
-      // Check if the opponent is within the vicinity range
-      if (distance < vicinityRange) {
-        // Add to the pressure level for each opponent within range
-        pressure += 20; // Each opponent adds a fixed amount of pressure
-      }
-    });
-
-    return pressure; // Return the total pressure level
+  isWithinBoundaries() {
+    return (
+      this.currentPosition.x >= -this.field.width / 2 &&
+      this.currentPosition.x <= this.field.width / 2 &&
+      this.currentPosition.y >= -this.field.length / 2 &&
+      this.currentPosition.y <= this.field.length / 2
+    );
   }
 
   isBeingMarked(opponents) {
-    const markingRadius = 5; // Distance to consider the player marked
+    const markingRadius = 5; // Units
     return opponents.some((opponent) => {
       const distance = this.calculateDistance(
         this.currentPosition,
@@ -1199,114 +850,18 @@ class Player {
   }
 
   hasSpaceToRun(opponents) {
-    const spaceRadius = 10; // Define how much space is needed to consider a run
-    return !this.isSpaceOccupied(this.currentPosition, opponents, spaceRadius);
-  }
-
-  isInFormationPosition() {
-    // Check if the player has a formation position defined by the team
-    if (!this.formationPosition) {
-      return false;
-    }
-
-    // Define a tolerance for how close the player should be to their formation position
-    const positionTolerance = 5; // Distance tolerance in arbitrary units (e.g., meters)
-
-    // Calculate the distance between the current position and the assigned formation position
-    const distanceToFormationPosition = this.calculateDistance(
-      this.currentPosition,
-      this.formationPosition
-    );
-
-    // Check if the player is within the tolerance range of their formation position
-    return distanceToFormationPosition <= positionTolerance;
-  }
-
-  // Set piece corner kick method
-  setPieceCornerKick(ball, side) {
-    console.log(`${this.name} is taking a corner kick from the ${side} side.`);
-
-    // Determine the corner position based on the side of the field
-    const cornerPosition = {
-      x: side === "left" ? -this.field.width / 2 : this.field.width / 2,
-      y:
-        this.team.name === "Home Team"
-          ? -this.field.length / 2
-          : this.field.length / 2,
-    };
-
-    // Move the ball to the corner position
-    ball.position = { ...cornerPosition };
-
-    // Execute the corner kick by setting the ball's velocity towards the penalty box
-    const targetX = 0; // Central area of the penalty box
-    const targetY =
-      this.team.name === "Home Team"
-        ? -this.field.length / 4
-        : this.field.length / 4;
-
-    this.actionKick(ball, { x: targetX, y: targetY });
-  }
-
-  // Set piece free kick method
-  setPieceFreeKick(ball, targetPosition) {
-    console.log(`${this.name} is taking a free kick.`);
-
-    // Free kick to a specified target position
-    this.actionKick(ball, targetPosition);
-  }
-
-  // Set piece goal kick method
-  setPieceGoalKick(ball) {
-    console.log(`${this.name} is taking a goal kick.`);
-
-    // Goal kick logic, usually towards the midfield or further
-    const targetX = 0; // Kick towards the middle of the field
-    const targetY =
-      this.team.name === "Home Team"
-        ? this.field.length / 4
-        : -this.field.length / 4;
-
-    this.actionKick(ball, { x: targetX, y: targetY });
-  }
-
-  // Set piece penalty kick method
-  setPiecePenaltyKick(ball) {
-    console.log(`${this.name} is taking a penalty kick.`);
-
-    // Penalty kick aimed at the goal
-    const targetX = 0; // Aim for the center of the goal
-    const targetY =
-      this.team.name === "Home Team"
-        ? this.field.length / 2
-        : -this.field.length / 2;
-
-    this.actionKick(ball, { x: targetX, y: targetY });
-  }
-
-  // Helper method to kick the ball towards a target
-  actionKick(ball, targetPosition) {
-    const direction = {
-      x: targetPosition.x - ball.position.x,
-      y: targetPosition.y - ball.position.y,
-    };
-
-    const magnitude = Math.sqrt(direction.x ** 2 + direction.y ** 2);
-    const power = 30; // Arbitrary power for the kick
-
-    ball.setVelocity({
-      x: (direction.x / magnitude) * power,
-      y: (direction.y / magnitude) * power,
+    const spaceRadius = 10; // Units
+    return !opponents.some((opponent) => {
+      const distance = this.calculateDistance(
+        this.currentPosition,
+        opponent.currentPosition
+      );
+      return distance < spaceRadius;
     });
-
-    // Ball is now moving, not carried by any player
-    ball.isShot = true;
-    ball.carrier = null;
-    this.hasBall = false;
   }
 
-  findClosestTeammateToBall(ball, team) {
-    return team.reduce((closestPlayer, player) => {
+  findClosestTeammateToBall(ball, teammates) {
+    return teammates.reduce((closestPlayer, player) => {
       const distanceToBall = this.calculateDistance(
         player.currentPosition,
         ball.position
@@ -1319,80 +874,190 @@ class Player {
     }, null);
   }
 
-  getOwnAndOpponentGoals() {
-    const field = this.field;
+  getOpponentGoalPosition() {
+    const { opponentGoal } = this.getOwnAndOpponentGoals();
+    const centerX = (opponentGoal.leftPost.x + opponentGoal.rightPost.x) / 2;
+    const centerY = (opponentGoal.leftPost.y + opponentGoal.rightPost.y) / 2;
+    return { x: centerX, y: centerY };
+  }
 
-    if (!field) {
+  getOwnGoalPosition() {
+    const { ownGoal } = this.getOwnAndOpponentGoals();
+    const centerX = (ownGoal.leftPost.x + ownGoal.rightPost.x) / 2;
+    const centerY = (ownGoal.leftPost.y + ownGoal.rightPost.y) / 2;
+    return { x: centerX, y: centerY };
+  }
+
+  getOwnAndOpponentGoals() {
+    if (!this.field) {
       throw new Error("Field data is required to determine goal positions.");
     }
 
-    // If the player is on the home team, their goal is at the bottom and the opponent's goal is at the top
-    const isHomeTeam = this.teamId === field.homeTeamId;
+    const isHomeTeam = this.teamSide === "home";
 
     const ownGoal = isHomeTeam
       ? {
-          leftPost: { x: -field.width / 4, y: -field.length / 2 },
-          rightPost: { x: field.width / 4, y: -field.length / 2 },
+          leftPost: { x: -this.field.width / 4, y: -this.field.length / 2 },
+          rightPost: { x: this.field.width / 4, y: -this.field.length / 2 },
         }
       : {
-          leftPost: { x: -field.width / 4, y: field.length / 2 },
-          rightPost: { x: field.width / 4, y: field.length / 2 },
+          leftPost: { x: -this.field.width / 4, y: this.field.length / 2 },
+          rightPost: { x: this.field.width / 4, y: this.field.length / 2 },
         };
 
     const opponentGoal = isHomeTeam
       ? {
-          leftPost: { x: -field.width / 4, y: field.length / 2 },
-          rightPost: { x: field.width / 4, y: field.length / 2 },
+          leftPost: { x: -this.field.width / 4, y: this.field.length / 2 },
+          rightPost: { x: this.field.width / 4, y: this.field.length / 2 },
         }
       : {
-          leftPost: { x: -field.width / 4, y: -field.length / 2 },
-          rightPost: { x: field.width / 4, y: -field.length / 2 },
+          leftPost: { x: -this.field.width / 4, y: -this.field.length / 2 },
+          rightPost: { x: this.field.width / 4, y: -this.field.length / 2 },
         };
 
     return { ownGoal, opponentGoal };
   }
 
-  calculateFreeSpace(teammate, opponents) {
-    let freeSpaceScore = 0;
-
-    // Set a threshold for what counts as "close" (e.g., 10 units on the field)
-    const closeProximityThreshold = 10;
-
-    // Calculate the distance to each opponent
-    opponents.forEach((opponent) => {
-      const distanceToOpponent = this.calculateDistance(
-        teammate.currentPosition,
-        opponent.currentPosition
-      );
-
-      // If the opponent is within close proximity, subtract from the score
-      if (distanceToOpponent < closeProximityThreshold) {
-        // Penalize more the closer the opponent is
-        freeSpaceScore -= closeProximityThreshold - distanceToOpponent;
-      }
-    });
-
-    // The score should be non-negative (players should not have negative free space)
-    freeSpaceScore = Math.max(freeSpaceScore, 0);
-
-    return freeSpaceScore;
+  getDirectionToOpponentGoal() {
+    const opponentGoal = this.getOpponentGoalPosition();
+    const direction = {
+      x: opponentGoal.x - this.currentPosition.x,
+      y: opponentGoal.y - this.currentPosition.y,
+    };
+    const magnitude = Math.sqrt(direction.x ** 2 + direction.y ** 2);
+    return {
+      x: direction.x / magnitude,
+      y: direction.y / magnitude,
+    };
   }
 
-  getOpponentGoalPosition() {
-    if (this.teamId === "home") {
-      // The opponent's goal is the top of the pitch for the home team
-      return this.field.getGoalPosition();
+  isSpaceOccupied(position, opponents, radius) {
+    return opponents.some((opponent) => {
+      const distance = this.calculateDistance(
+        position,
+        opponent.currentPosition
+      );
+      return distance < radius;
+    });
+  }
+
+  // Method to attempt a defensive play (intercept or tackle)
+  attemptDefensivePlay(opponents, ball) {
+    const opponentWithBall = opponents.find((opponent) => opponent.hasBall);
+    if (!opponentWithBall) return;
+
+    const tackleProbability =
+      this.stats.defending /
+      (this.stats.defending + opponentWithBall.stats.dribbling);
+
+    if (Math.random() < tackleProbability) {
+      // Successful tackle
+      this.hasBall = true;
+      ball.carrier = this;
+      opponentWithBall.hasBall = false;
+      console.log(
+        `${this.name} successfully tackles ${opponentWithBall.name} and gains possession.`
+      );
     } else {
-      // The opponent's goal is at the bottom for the away team, so flip the signs
-      const goalPosition = this.field.getGoalPosition();
-      return {
-        leftPost: { x: goalPosition.leftPost.x, y: -goalPosition.leftPost.y },
-        rightPost: {
-          x: goalPosition.rightPost.x,
-          y: -goalPosition.rightPost.y,
-        },
-      };
+      // Unsuccessful tackle; possible foul
+      if (Math.random() < 0.2) {
+        // Foul committed
+        console.log(`${this.name} commits a foul on ${opponentWithBall.name}.`);
+        // Handle foul logic...
+      } else {
+        console.log(`${this.name} fails to tackle ${opponentWithBall.name}.`);
+      }
     }
+  }
+
+  getDefensivePosition() {
+    // Calculate defensive position based on formation and tactics
+    const ownGoal = this.getOwnGoalPosition();
+    const offset = 30; // Units away from own goal
+    const directionAwayFromGoal = {
+      x: this.currentPosition.x - ownGoal.x,
+      y: this.currentPosition.y - ownGoal.y,
+    };
+    const magnitude = Math.sqrt(
+      directionAwayFromGoal.x ** 2 + directionAwayFromGoal.y ** 2
+    );
+    const targetPosition = {
+      x: ownGoal.x + (directionAwayFromGoal.x / magnitude) * offset,
+      y: ownGoal.y + (directionAwayFromGoal.y / magnitude) * offset,
+    };
+    return targetPosition;
+  }
+
+  // Method to find open space
+  findOpenSpace(opponents) {
+    const searchRadius = 20; // Units
+    const angleIncrement = 15; // Degrees
+    let bestSpace = null;
+    let maxDistance = 0;
+
+    for (let angle = -90; angle <= 90; angle += angleIncrement) {
+      const radian = (angle * Math.PI) / 180;
+      const potentialSpace = {
+        x: this.currentPosition.x + searchRadius * Math.cos(radian),
+        y: this.currentPosition.y + searchRadius * Math.sin(radian),
+      };
+
+      if (
+        this.field.isWithinBounds(potentialSpace) &&
+        !this.isSpaceOccupied(potentialSpace, opponents, 5)
+      ) {
+        const distance = this.calculateDistance(
+          this.currentPosition,
+          potentialSpace
+        );
+        if (distance > maxDistance) {
+          bestSpace = potentialSpace;
+          maxDistance = distance;
+        }
+      }
+    }
+    return bestSpace;
+  }
+
+  findBestDribblePosition(opponents) {
+    const forwardDistance = 10; // Units to move forward
+    const directionToGoal = this.getDirectionToOpponentGoal();
+    const potentialPosition = {
+      x: this.currentPosition.x + directionToGoal.x * forwardDistance,
+      y: this.currentPosition.y + directionToGoal.y * forwardDistance,
+    };
+
+    if (
+      this.field.isWithinBounds(potentialPosition) &&
+      !this.isSpaceOccupied(potentialPosition, opponents, 5)
+    ) {
+      return potentialPosition;
+    } else {
+      // Try moving slightly to the left or right
+      const angles = [-15, 15];
+      for (let angle of angles) {
+        const rad = (angle * Math.PI) / 180;
+        const newDirection = {
+          x:
+            directionToGoal.x * Math.cos(rad) -
+            directionToGoal.y * Math.sin(rad),
+          y:
+            directionToGoal.x * Math.sin(rad) +
+            directionToGoal.y * Math.cos(rad),
+        };
+        const newPosition = {
+          x: this.currentPosition.x + newDirection.x * forwardDistance,
+          y: this.currentPosition.y + newDirection.y * forwardDistance,
+        };
+        if (
+          this.field.isWithinBounds(newPosition) &&
+          !this.isSpaceOccupied(newPosition, opponents, 5)
+        ) {
+          return newPosition;
+        }
+      }
+    }
+    return null;
   }
 }
 

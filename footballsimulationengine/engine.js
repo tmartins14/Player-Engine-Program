@@ -68,13 +68,66 @@ const createTeam = async (name, formation) => {
  * @param {Object} pitchDetails - The pitch configuration with width and height.
  * @returns {Object} match - The initialized match object.
  */
+
+function assignRoles(team) {
+  // Assign captain: the player with the highest leadership attribute or first player
+  const captain = team.players[0];
+  captain.setRoles({ captain: true });
+
+  // Assign vice-captain: the player with the next highest leadership attribute or second player
+  const viceCaptain = team.players[1] || captain;
+  if (viceCaptain !== captain) {
+    viceCaptain.setRoles({ viceCaptain: true });
+  }
+
+  // Assign penalty taker: player with the highest shooting stat
+  let penaltyTaker = team.players.reduce((bestPlayer, player) => {
+    return player.stats.shooting > bestPlayer.stats.shooting
+      ? player
+      : bestPlayer;
+  }, team.players[0]);
+  penaltyTaker.setRoles({ penaltyTaker: true });
+
+  // Assign free-kick taker: player with the highest passing stat
+  let freeKickTaker = team.players.reduce((bestPlayer, player) => {
+    return player.stats.passing > bestPlayer.stats.passing
+      ? player
+      : bestPlayer;
+  }, team.players[0]);
+  freeKickTaker.setRoles({ freeKickTaker: true });
+
+  // Assign left corner taker
+  let leftCornerTaker = team.players.find((player) => player.position === "LM");
+  if (!leftCornerTaker) {
+    leftCornerTaker = team.players.find((player) =>
+      ["CM", "CAM", "CDM"].includes(player.position)
+    );
+  }
+  if (leftCornerTaker) {
+    leftCornerTaker.setRoles({ leftCornerTaker: true });
+  }
+
+  // Assign right corner taker
+  let rightCornerTaker = team.players.find(
+    (player) => player.position === "RM"
+  );
+  if (!rightCornerTaker) {
+    rightCornerTaker = team.players.find((player) =>
+      ["CM", "CAM", "CDM"].includes(player.position)
+    );
+  }
+  if (rightCornerTaker) {
+    rightCornerTaker.setRoles({ rightCornerTaker: true });
+  }
+}
+
 async function initiateGame(team1, team2, pitchDetails) {
   // Create the home and away teams using the new Team constructor
   const homeTeam = new Team(team1.name, team1.formation);
   const awayTeam = new Team(team2.name, team2.formation);
 
-  // Initialize players for both teams
-  team1.players.forEach((playerData, index) => {
+  // Initialize players for the home team
+  team1.players.forEach((playerData) => {
     const player = new Player({
       name: playerData.name,
       teamId: homeTeam.name,
@@ -87,7 +140,8 @@ async function initiateGame(team1, team2, pitchDetails) {
     homeTeam.addPlayer(player);
   });
 
-  team2.players.forEach((playerData, index) => {
+  // Initialize players for the away team
+  team2.players.forEach((playerData) => {
     const player = new Player({
       name: playerData.name,
       teamId: awayTeam.name,
@@ -99,6 +153,10 @@ async function initiateGame(team1, team2, pitchDetails) {
     });
     awayTeam.addPlayer(player);
   });
+
+  // Assign roles to players in both teams
+  assignRoles(homeTeam);
+  assignRoles(awayTeam);
 
   // Initialize the match object with the teams and field details
   const match = new Match(homeTeam, awayTeam);
@@ -112,19 +170,19 @@ async function initiateGame(team1, team2, pitchDetails) {
   match.initializePositions(false); // Initialize player positions
 
   // Log the current position of each player in the homeTeam
-  homeTeam.players.forEach((player) => {
-    console.log(
-      `${player.name} (${player.position}) is at position: `,
-      player.currentPosition
-    );
-  });
+  //   homeTeam.players.forEach((player) => {
+  //     console.log(
+  //       `${player.name} (${player.position}) is at position: `,
+  //       player.currentPosition
+  //     );
+  //   });
 
-  awayTeam.players.forEach((player) => {
-    console.log(
-      `${player.name} (${player.position}) is at position: `,
-      player.currentPosition
-    );
-  });
+  //   awayTeam.players.forEach((player) => {
+  //     console.log(
+  //       `${player.name} (${player.position}) is at position: `,
+  //       player.currentPosition
+  //     );
+  //   });
 
   return match;
 }

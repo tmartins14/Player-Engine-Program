@@ -82,12 +82,12 @@ class Ball {
   }
 
   updatePosition(timeDelta) {
-    console.log(
-      this.position.x,
-      this.position.y,
-      this.velocity.x,
-      this.velocity.y
-    );
+    // console.log(
+    //   this.position.x,
+    //   this.position.y,
+    //   this.velocity.x,
+    //   this.velocity.y
+    // );
     // Update the ball's position based on its velocity and the time delta
     this.position.x += this.velocity.x * timeDelta;
     this.position.y += this.velocity.y * timeDelta;

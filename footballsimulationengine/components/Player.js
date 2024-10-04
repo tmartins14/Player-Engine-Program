@@ -276,25 +276,36 @@ class Player {
     // Set ball speed (you can adjust this based on passing skill or other factors)
     const speed = 20; // Adjust as needed
 
-    // Set the ball's velocity
+    // Set the ball's velocity and target position
     ball.setVelocity({
       x: (adjustedDirection.x / magnitude) * speed,
       y: (adjustedDirection.y / magnitude) * speed,
     });
+    ball.targetPosition = targetPosition;
 
     // Update ball and player state
     ball.isShot = false;
     ball.carrier = null;
     this.hasBall = false;
 
+    // Assign the ball to the target teammate upon arrival
+    ball.onReachTarget = () => {
+      ball.velocity = { x: 0, y: 0 };
+      ball.position = { ...ball.targetPosition };
+      ball.carrier = targetTeammate;
+      targetTeammate.hasBall = true;
+      console.log(
+        `${targetTeammate.name} receives the ball from ${this.name}.`
+      );
+    };
+
     console.log(`${this.name} passes the ball towards ${targetTeammate.name}.`);
   }
-
   actionDribble(ball, opponents, teammates) {
     const targetPosition = this.findBestDribblePosition(opponents);
 
     if (targetPosition) {
-      this.actionMoveTowardsTarget(targetPosition, true);
+      this.actionMoveTowardsTarget(targetPosition, true, ball);
     } else {
       // If no good dribble option, consider passing
       const targetTeammate = this.findBestTeammateToPass(teammates, opponents);
@@ -339,7 +350,7 @@ class Player {
   }
 
   // 7. Positioning and Movement
-  actionMoveTowardsTarget(targetPosition, isDribbling = false) {
+  actionMoveTowardsTarget(targetPosition, isDribbling = false, ball = null) {
     const direction = {
       x: targetPosition.x - this.currentPosition.x,
       y: targetPosition.y - this.currentPosition.y,
@@ -352,9 +363,16 @@ class Player {
       ? this.stats.dribbling * 0.1
       : this.stats.pace * 0.05;
 
-    // Update position
+    // Update player's position
     this.currentPosition.x += (direction.x / magnitude) * speed;
     this.currentPosition.y += (direction.y / magnitude) * speed;
+
+    // If dribbling, update the ball's position to match the player's position
+    if (isDribbling && ball) {
+      ball.position.x = this.currentPosition.x;
+      ball.position.y = this.currentPosition.y;
+      ball.carrier = this; // Ensure the ball knows who is carrying it
+    }
 
     // Ensure player stays within field boundaries
     this.actionMoveToWithinBoundaries();
@@ -780,6 +798,31 @@ class Player {
     });
 
     return bestTeammate;
+  }
+
+  // Method to find the closest teammate
+  findClosestTeammate(teammates, opponents) {
+    let closestTeammate = null;
+    let shortestDistance = Infinity;
+
+    teammates.forEach((teammate) => {
+      if (teammate !== this) {
+        const distance = this.calculateDistance(
+          this.currentPosition,
+          teammate.currentPosition
+        );
+
+        // Check for a clear passing lane
+        if (this.hasClearPassingLane(teammate, opponents)) {
+          if (distance < shortestDistance) {
+            shortestDistance = distance;
+            closestTeammate = teammate;
+          }
+        }
+      }
+    });
+
+    return closestTeammate;
   }
 
   hasClearPassingLane(teammate, opponents) {

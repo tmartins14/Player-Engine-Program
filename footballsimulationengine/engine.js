@@ -193,7 +193,7 @@ async function initiateGame(team1, team2, pitchDetails) {
  * @param {Function} onUpdatePositions - Callback function to handle position updates.
  * @returns {Array} matchDetails - The updated player positions, ball position, and match data.
  */
-async function playIteration(match, onUpdatePositions) {
+async function playIteration(match) {
   // Initialize an array to hold match details including player positions
   const matchDetails = [];
 
@@ -201,43 +201,52 @@ async function playIteration(match, onUpdatePositions) {
   matchDetails.push(match.field.width);
   matchDetails.push(match.field.length);
 
-  // Use playMatch to update player positions and the ball's position
-  match.playMatch((currentPositions) => {
-    // Push each player's position into matchDetails
-    currentPositions.forEach((position) => {
-      matchDetails.push(position.x);
-      matchDetails.push(position.y);
-    });
+  // Initialize match if it's not started yet
+  if (!match.isPlaying) {
+    match.playMatch();
+  }
 
-    // Push the match summary details (teams, ball, etc.)
-    matchDetails.push({
-      homeTeam: {
-        name: match.homeTeam.name,
-        players: match.homeTeam.players.map((player) => ({
-          name: player.name,
-          position: player.position,
-          rating: player.stats.rating,
-          fitness: player.fitness,
-          currentPOS: [player.currentPosition.x, player.currentPosition.y],
-        })),
-      },
-      awayTeam: {
-        name: match.awayTeam.name,
-        players: match.awayTeam.players.map((player) => ({
-          name: player.name,
-          position: player.position,
-          rating: player.stats.rating,
-          fitness: player.fitness,
-          currentPOS: [player.currentPosition.x, player.currentPosition.y],
-        })),
-      },
-      ball: {
-        position: [match.ball.position.x, match.ball.position.y],
-        withPlayer: match.ball.withPlayer || false,
-      },
-      matchTime: match.matchTime,
-      half: match.half || 1,
-    });
+  // Simulate the match by updating it by one time step
+  const deltaTime = 0.1; // Match the client's update frequency (100ms)
+  match.updateMatch(deltaTime);
+
+  // Get current positions
+  const currentPositions = match.getCurrentPositions();
+
+  // Push each player's position into matchDetails
+  currentPositions.forEach((position) => {
+    matchDetails.push(position.x);
+    matchDetails.push(position.y);
+  });
+
+  // Push the match summary details (teams, ball, etc.)
+  matchDetails.push({
+    homeTeam: {
+      name: match.homeTeam.name,
+      players: match.homeTeam.players.map((player) => ({
+        name: player.name,
+        position: player.position,
+        rating: player.stats.rating,
+        fitness: player.fitness,
+        currentPOS: [player.currentPosition.x, player.currentPosition.y],
+      })),
+    },
+    awayTeam: {
+      name: match.awayTeam.name,
+      players: match.awayTeam.players.map((player) => ({
+        name: player.name,
+        position: player.position,
+        rating: player.stats.rating,
+        fitness: player.fitness,
+        currentPOS: [player.currentPosition.x, player.currentPosition.y],
+      })),
+    },
+    ball: {
+      position: [match.ball.position.x, match.ball.position.y],
+      withPlayer: match.ball.withPlayer || false,
+    },
+    matchTime: match.matchTime,
+    half: match.half || 1,
   });
 
   // Return both the updated match object and matchDetails
@@ -260,9 +269,9 @@ async function startSecondHalf(match) {
   const matchDetails = [];
 
   // Kick off the second half and capture the positions
-  match.playMatch((currentPositions) => {
-    matchDetails.push(currentPositions); // Store positions for the second half
-  });
+  //   match.playMatch((currentPositions) => {
+  //     matchDetails.push(currentPositions); // Store positions for the second half
+  //   });
 
   return matchDetails; // Return the updated match details for the second half
 }

@@ -14,6 +14,7 @@ class Match {
     this.awayScore = 0;
     this.isPlaying = false; // Indicates if the match is currently ongoing
     this.isHomeTeamKickingOff = null; // Will be set in initializePositions
+    this.isReset = true;
   }
 
   // Initialize player positions for both teams
@@ -64,28 +65,15 @@ class Match {
   }
 
   // Play or update the match based on matchDetails
-  playMatch(onUpdatePositions) {
+  // In Match class
+  playMatch() {
+    if (this.isReset) {
+      this.initializePositions(); // Ensure positions are set
+      this.kickOff();
+      this.isReset = false;
+    }
+
     this.isPlaying = true;
-
-    // Use setInterval to simulate the match frame by frame
-    const matchInterval = setInterval(() => {
-      if (this.matchTime >= this.maxTime || !this.isPlaying) {
-        clearInterval(matchInterval); // Stop the match after maxTime
-        this.endMatch();
-        return;
-      }
-
-      this.updateMatch(1); // Simulate the match in 1-second increments
-      this.matchTime += 1; // Increment match time by 1 second
-
-      // Get current positions
-      const currentPositions = this.getCurrentPositions();
-
-      // Execute the callback with the current positions
-      if (typeof onUpdatePositions === "function") {
-        onUpdatePositions(currentPositions);
-      }
-    }, 3000); // Update every 1 second (1000 milliseconds)
   }
 
   // Handle the kickoff
@@ -103,15 +91,8 @@ class Match {
 
     // Find the player assigned to kick off (e.g., striker or midfielder)
     let playerWithBall = kickingOffTeam.players.find(
-      (player) => player.position === "ST1" || player.position === "ST2"
+      (player) => player.position === "ST2"
     );
-
-    // If no striker found, pick any midfielder
-    if (!playerWithBall) {
-      playerWithBall = kickingOffTeam.players.find((player) =>
-        ["CAM", "CM", "CDM"].includes(player.position)
-      );
-    }
 
     // If still no player found, pick any available player
     if (!playerWithBall) {
@@ -124,12 +105,12 @@ class Match {
     }
 
     // Position the ball carrier at the center spot
-    playerWithBall.setPosition({ x: 0, y: 0 });
+    // playerWithBall.setPosition({ x: 0, y: 0 });
     playerWithBall.hasBall = true;
     this.ball.changeCarrier(playerWithBall);
 
     // Find the nearest teammate to pass the ball to
-    const targetTeammate = playerWithBall.findBestTeammateToPass(
+    const targetTeammate = playerWithBall.findClosestTeammate(
       kickingOffTeam.players,
       opponentTeam.players
     );
@@ -148,13 +129,25 @@ class Match {
   }
 
   // Update match simulation per second
-  updateMatch(timeDelta) {
+  updateMatch(deltaTime) {
+    if (!this.isPlaying) {
+      return;
+    }
+
+    if (this.matchTime >= this.maxTime) {
+      this.endMatch();
+      return;
+    }
+
+    // Update match time
+    this.matchTime += deltaTime;
+
     // Simulate actions for each team
-    this.simulateTeamActions(this.homeTeam, this.awayTeam);
-    this.simulateTeamActions(this.awayTeam, this.homeTeam);
+    this.simulateTeamActions(this.homeTeam, this.awayTeam, deltaTime);
+    this.simulateTeamActions(this.awayTeam, this.homeTeam, deltaTime);
 
     // Update ball's position
-    this.ball.updatePosition(timeDelta);
+    this.ball.updatePosition(deltaTime);
 
     // Check if the ball has gone out of bounds or near the goal
     if (this.isBallNearBoundary()) {
@@ -217,7 +210,7 @@ class Match {
     this.initializePositions();
 
     // Reset the ball and kickoff
-    this.kickOff();
+    this.isReset = true;
   }
 
   // Check if the ball goes out of bounds

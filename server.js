@@ -86,18 +86,11 @@ app.get("/movePlayers", function (req, res) {
   footballEngine
     .playIteration(matchInfo.matchSetup)
     .then(({ match, matchDetails }) => {
-      // Destructure the result from playIteration
-      its++; // Increment iteration counter
+      // Update the match object in matchInfo with the new state
+      matchInfo.matchSetup = match;
 
-      // Update the match object in matchInfo with the new state of home/away teams and ball position
-      matchInfo.matchSetup = match; // Update the match object directly
-
-      // Process the positions to create the send array (send updated positions to the front end)
-      processPositions(
-        match.homeTeam, // Updated home team
-        match.awayTeam, // Updated away team
-        matchInfo.matchSetup // Use the updated match info
-      )
+      // Process the positions to create the send array
+      processPositions(match.homeTeam, match.awayTeam, matchInfo.matchSetup)
         .then((sendArray) => {
           res.send(sendArray); // Send the updated positions back to the client
         })

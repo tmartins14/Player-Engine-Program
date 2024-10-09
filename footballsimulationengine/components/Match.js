@@ -1,4 +1,10 @@
-const Team = require("./Team");
+/*
+ * Match Class
+ * -----------
+ * Manages the game flow, timekeeping, and interactions between teams.
+ * Coordinates the simulation of the match, including updating player positions, handling events, and updating the ball.
+ */
+
 const Ball = require("./Ball");
 const Field = require("./Field");
 
@@ -9,7 +15,7 @@ class Match {
     this.field = new Field(11); // 11v11 field
     this.ball = new Ball(this.field);
     this.matchTime = 0; // Start time in seconds
-    this.maxTime = 2 * 60; // Match duration in seconds (2 minutes)
+    this.maxTime = 2 * 60; // Match duration in seconds (90 minutes)
     this.homeScore = 0;
     this.awayScore = 0;
     this.isPlaying = false; // Indicates if the match is currently ongoing
@@ -19,12 +25,14 @@ class Match {
 
   // Initialize player positions for both teams
   initializePositions(isSecondHalf = false) {
-    // Randomly choose which team kicks off first
-    this.isHomeTeamKickingOff = Math.random() > 0.5;
+    // Randomly choose which team kicks off first if not already set
+    if (this.isHomeTeamKickingOff === null) {
+      this.isHomeTeamKickingOff = Math.random() > 0.5;
+    }
 
     // Set the positions for home and away teams using their formations
     if (!isSecondHalf) {
-      // First half: home team at the bottom and away team at the top
+      // First half: home team defends the bottom goal, away team defends the top goal
       this.homeTeam.setFormationPositions(
         this.field,
         false,
@@ -37,8 +45,8 @@ class Match {
       );
 
       // Set goals for the first half
-      this.homeTeam.goalPosition = this.field.getGoalPosition(true); // Home team's goal at the bottom
-      this.awayTeam.goalPosition = this.field.getGoalPosition(false); // Away team's goal at the top
+      this.homeTeam.goalPosition = this.field.getGoalPosition(false); // Home team's goal at the bottom
+      this.awayTeam.goalPosition = this.field.getGoalPosition(true); // Away team's goal at the top
     } else {
       // Second half: switch sides
       this.homeTeam.setFormationPositions(
@@ -52,9 +60,9 @@ class Match {
         this.isHomeTeamKickingOff
       );
 
-      // Set goals for the second half (switch sides)
-      this.homeTeam.goalPosition = this.field.getGoalPosition(false); // Home team's goal at the top
-      this.awayTeam.goalPosition = this.field.getGoalPosition(true); // Away team's goal at the bottom
+      // Switch goal positions
+      this.homeTeam.goalPosition = this.field.getGoalPosition(true); // Home team's goal at the top
+      this.awayTeam.goalPosition = this.field.getGoalPosition(false); // Away team's goal at the bottom
     }
 
     console.log(
@@ -64,8 +72,7 @@ class Match {
     );
   }
 
-  // Play or update the match based on matchDetails
-  // In Match class
+  // Start or resume the match
   playMatch() {
     if (this.isReset) {
       this.initializePositions(); // Ensure positions are set
@@ -89,10 +96,17 @@ class Match {
       : this.awayTeam;
     const opponentTeam = this.getOpponentTeam(kickingOffTeam);
 
-    // Find the player assigned to kick off (e.g., striker or midfielder)
+    // Find the player assigned to kick off (e.g., center forward)
     let playerWithBall = kickingOffTeam.players.find(
-      (player) => player.position === "ST2"
+      (player) => player.position === "ST" || player.position === "ST1"
     );
+
+    // If no specific player found, pick any available forward
+    if (!playerWithBall) {
+      playerWithBall = kickingOffTeam.players.find((player) =>
+        ["CF", "CAM"].includes(player.position)
+      );
+    }
 
     // If still no player found, pick any available player
     if (!playerWithBall) {
@@ -105,30 +119,17 @@ class Match {
     }
 
     // Position the ball carrier at the center spot
-    // playerWithBall.setPosition({ x: 0, y: 0 });
+    playerWithBall.setPosition({ x: 0, y: 0 });
     playerWithBall.hasBall = true;
     this.ball.changeCarrier(playerWithBall);
 
-    // Find the nearest teammate to pass the ball to
-    const targetTeammate = playerWithBall.findClosestTeammate(
-      kickingOffTeam.players,
-      opponentTeam.players
-    );
+    console.log(`${playerWithBall.name} is kicking off.`);
 
-    if (targetTeammate) {
-      // Player with the ball attempts to pass to the nearest teammate
-      playerWithBall.actionPass(this.ball, targetTeammate);
-      console.log(
-        `${playerWithBall.name} passes to ${targetTeammate.name} at kickoff.`
-      );
-    } else {
-      // If no teammate found, the player holds the ball or performs a fallback action
-      playerWithBall.actionHoldPosition(kickingOffTeam.players);
-      console.log(`${playerWithBall.name} is holding the ball after kickoff.`);
-    }
+    // Start the first action
+    this.updateMatch(0); // Update immediately to process the first action
   }
 
-  // Update match simulation per second
+  // Update match simulation per time step
   updateMatch(deltaTime) {
     if (!this.isPlaying) {
       return;
@@ -142,14 +143,17 @@ class Match {
     // Update match time
     this.matchTime += deltaTime;
 
-    // Simulate actions for each team
-    this.simulateTeamActions(this.homeTeam, this.awayTeam, deltaTime);
-    this.simulateTeamActions(this.awayTeam, this.homeTeam, deltaTime);
+    // Compute game context
+    const gameContext = this.determineGameContext();
+
+    // Simulate actions for each team, passing gameContext
+    this.homeTeam.decideTeamActions(this.ball, this.awayTeam, gameContext);
+    this.awayTeam.decideTeamActions(this.ball, this.homeTeam, gameContext);
 
     // Update ball's position
     this.ball.updatePosition(deltaTime);
 
-    // Check if the ball has gone out of bounds or near the goal
+    // Check for events
     if (this.isBallNearBoundary()) {
       this.checkForOutOfBounds();
     }
@@ -159,26 +163,18 @@ class Match {
     }
   }
 
-  // Simulate actions for each team
-  simulateTeamActions(team, opponentTeam) {
-    team.players.forEach((player) => {
-      // Pass explicit lists of teammates and opponents
-      player.decideAction(this.ball, opponentTeam.players, team.players);
-    });
-  }
-
   // Check if a goal is scored
   checkForGoal() {
-    const homeGoal = this.field.getGoalPosition(true); // Home team's goal
-    const awayGoal = this.field.getGoalPosition(false); // Away team's goal
+    const homeGoal = this.field.getGoalPosition(false); // Home team's goal at the bottom
+    const awayGoal = this.field.getGoalPosition(true); // Away team's goal at the top
 
     const { x, y } = this.ball.position;
 
     // Check if the ball crosses the home team's goal line
     if (
-      y <= homeGoal.leftPost.y && // Ball crosses the goal line at home goal
-      x >= homeGoal.leftPost.x && // Between the left post
-      x <= homeGoal.rightPost.x // And the right post
+      y <= -this.field.length / 2 &&
+      x >= homeGoal.leftPost.x &&
+      x <= homeGoal.rightPost.x
     ) {
       // Goal for away team
       this.awayScore += 1;
@@ -189,9 +185,9 @@ class Match {
 
     // Check if the ball crosses the away team's goal line
     if (
-      y >= awayGoal.leftPost.y && // Ball crosses the goal line at away goal
-      x >= awayGoal.leftPost.x && // Between the left post
-      x <= awayGoal.rightPost.x // And the right post
+      y >= this.field.length / 2 &&
+      x >= awayGoal.leftPost.x &&
+      x <= awayGoal.rightPost.x
     ) {
       // Goal for home team
       this.homeScore += 1;
@@ -211,6 +207,7 @@ class Match {
 
     // Reset the ball and kickoff
     this.isReset = true;
+    this.playMatch();
   }
 
   // Check if the ball goes out of bounds
@@ -228,7 +225,7 @@ class Match {
       if (this.ball.lastTouchedBy) {
         const lastTouchedByTeam = this.ball.lastTouchedBy.teamId;
         const attackingTeam =
-          lastTouchedByTeam === this.homeTeam.teamId
+          lastTouchedByTeam === this.homeTeam.name
             ? this.homeTeam
             : this.awayTeam;
         const defendingTeam = this.getOpponentTeam(attackingTeam);
@@ -268,7 +265,11 @@ class Match {
 
   // Reset the ball for a throw-in
   resetForThrowIn() {
+    // Determine which team takes the throw-in
     const team = this.ball.position.x > 0 ? this.awayTeam : this.homeTeam;
+    const opponentTeam = this.getOpponentTeam(team);
+
+    // Set the throw-in position
     const throwInPosition = {
       x:
         this.ball.position.x > 0 ? this.field.width / 2 : -this.field.width / 2,
@@ -279,28 +280,39 @@ class Match {
     this.ball.resetForThrowIn(throwInPosition);
 
     // Choose a player to take the throw-in (nearest player)
-    const playerTakingThrowIn = team.players.reduce((closestPlayer, player) => {
+    const playerTakingThrowIn = team.players.reduce((closest, player) => {
+      if (player.injured) return closest;
       const distance = player.calculateDistance(
         player.currentPosition,
         throwInPosition
       );
-      if (
-        !player.injured &&
-        (!closestPlayer || distance < closestPlayer.distance)
-      ) {
+      if (!closest || distance < closest.distance) {
         return { player, distance };
       }
-      return closestPlayer;
+      return closest;
     }, null)?.player;
 
     if (playerTakingThrowIn) {
+      // Move the player to the throw-in position
       playerTakingThrowIn.setPosition(throwInPosition);
-      playerTakingThrowIn.hasBall = true;
-      this.ball.changeCarrier(playerTakingThrowIn);
-      console.log(`${playerTakingThrowIn.name} is taking the throw-in.`);
-    }
+      // The ball is out of play until the throw-in is taken
+      this.ball.isInPlay = false;
 
-    this.possession(team);
+      console.log(`${playerTakingThrowIn.name} is taking the throw-in.`);
+
+      // The team decides how to handle the throw-in
+      team.decideSetPiece(
+        playerTakingThrowIn,
+        this.ball,
+        opponentTeam,
+        "throwIn"
+      );
+
+      // Ball is now in play after the throw-in
+      this.ball.isInPlay = true;
+    } else {
+      console.error("No player available to take the throw-in.");
+    }
   }
 
   // Reset the ball for a goal kick
@@ -311,15 +323,27 @@ class Match {
     );
 
     if (playerTakingGoalKick) {
-      this.ball.resetForGoalKick(team.teamSide);
+      // Reset ball position for goal kick
+      const goalKickPosition = {
+        x: 0,
+        y:
+          team.teamSide === "home"
+            ? -this.field.length / 2 + 5
+            : this.field.length / 2 - 5,
+      };
+      this.ball.resetForGoalKick(goalKickPosition);
 
-      // Player takes the goal kick
-      playerTakingGoalKick.setPieceGoalKick(
+      console.log(`${playerTakingGoalKick.name} is taking the goal kick.`);
+
+      // The team decides how to handle the goal kick
+      team.decideSetPiece(
+        playerTakingGoalKick,
         this.ball,
-        team.players,
-        this.getOpponentTeam(team).players
+        this.getOpponentTeam(team),
+        "goalKick"
       );
 
+      // Set possession to the team taking the goal kick
       this.possession(team);
     }
   }
@@ -331,86 +355,36 @@ class Match {
     // Determine the side of the corner kick
     const side = this.ball.position.x < 0 ? "left" : "right";
 
-    // Choose a player to take the corner kick based on roles
-    let playerTakingCornerKick = attackingTeam.players.find(
-      (player) =>
-        (side === "left" && player.roles.leftCornerTaker) ||
-        (side === "right" && player.roles.rightCornerTaker)
-    );
-
-    // If no player assigned, choose any suitable player
-    if (!playerTakingCornerKick) {
-      playerTakingCornerKick = attackingTeam.players.find(
-        (player) => player.position === "LM" || player.position === "RM"
-      );
-    }
-
-    // If still no player found, pick any midfielder
-    if (!playerTakingCornerKick) {
-      playerTakingCornerKick = attackingTeam.players.find((player) =>
-        ["CM", "CAM", "CDM"].includes(player.position)
-      );
-    }
-
-    // If still no player found, pick any player
-    if (!playerTakingCornerKick) {
-      playerTakingCornerKick = attackingTeam.players[0];
-    }
+    // Choose a player to take the corner kick
+    const playerTakingCornerKick = attackingTeam.chooseCornerTaker(side);
 
     if (playerTakingCornerKick) {
       // Reset ball position for corner kick
-      this.ball.resetForCornerKick(attackingTeam.teamSide, side);
+      const cornerKickPosition = {
+        x: side === "left" ? -this.field.width / 2 : this.field.width / 2,
+        y:
+          attackingTeam.teamSide === "home"
+            ? this.field.length / 2
+            : -this.field.length / 2,
+      };
+      this.ball.resetForCornerKick(cornerKickPosition);
 
-      // Move players into position for corner kick
-      this.positionPlayersForCornerKick(attackingTeam, defendingTeam, side);
+      console.log(
+        `${playerTakingCornerKick.name} is taking the corner kick from the ${side} side.`
+      );
 
-      // Player takes the corner kick
-      playerTakingCornerKick.setPieceCornerKick(
+      // The team decides how to handle the corner kick
+      attackingTeam.decideSetPiece(
+        playerTakingCornerKick,
         this.ball,
-        side,
-        attackingTeam.players,
-        defendingTeam.players
+        defendingTeam,
+        "cornerKick",
+        side
       );
 
       // Set possession to the attacking team
       this.possession(attackingTeam);
     }
-  }
-
-  // Position players for corner kick
-  positionPlayersForCornerKick(attackingTeam, defendingTeam, side) {
-    // Implementation of positioning logic
-    // For simplicity, not fully implemented here
-  }
-
-  // Reset the ball for a free kick
-  resetForFreeKick(player) {
-    console.log("Free kick awarded.");
-
-    const team =
-      player.teamId === this.homeTeam.teamId ? this.homeTeam : this.awayTeam;
-    const opponents = this.getOpponentTeam(team).players;
-
-    // Find the assigned free-kick taker
-    const freeKickTaker = team.players.find(
-      (p) => p.roles.freeKickTaker && !p.injured
-    );
-
-    const playerTakingFreeKick = freeKickTaker || player;
-
-    const freeKickPosition = {
-      x: playerTakingFreeKick.currentPosition.x,
-      y: playerTakingFreeKick.currentPosition.y,
-    };
-
-    // Reset the ball and let the player take the free kick
-    this.ball.resetForFreeKick(freeKickPosition);
-    playerTakingFreeKick.setPieceFreeKick(
-      this.ball,
-      freeKickPosition,
-      team.players,
-      opponents
-    );
   }
 
   // End the match
@@ -458,22 +432,41 @@ class Match {
     return positions; // Return positions for this frame
   }
 
+  // Determine the game context for AI decision-making
+  determineGameContext() {
+    const fieldLength = this.field.length;
+    const ballPositionY = this.ball.position.y;
+
+    // Determine the field zone
+    let fieldZone;
+    if (Math.abs(ballPositionY) > (2 * fieldLength) / 6) {
+      fieldZone = ballPositionY > 0 ? "attackingThird" : "defensiveThird";
+    } else {
+      fieldZone = "middleThird";
+    }
+
+    // Time context
+    const timeRemaining = this.maxTime - this.matchTime;
+    const isLateGame = timeRemaining <= 15 * 60; // Last 15 minutes
+
+    // Score context
+    const goalDifference = this.homeScore - this.awayScore;
+
+    // Game phase
+    const isSetPiece = !this.ball.isInPlay;
+
+    return {
+      fieldZone,
+      timeRemaining,
+      isLateGame,
+      goalDifference,
+      isSetPiece,
+    };
+  }
+
   // Helper method to get the opponent team
   getOpponentTeam(team) {
     return team === this.homeTeam ? this.awayTeam : this.homeTeam;
-  }
-
-  // Helper methods to get teammates and opponents of a player
-  getTeammates(player) {
-    const team =
-      player.teamId === this.homeTeam.teamId ? this.homeTeam : this.awayTeam;
-    return team.players.filter((p) => p !== player);
-  }
-
-  getOpponents(player) {
-    const opponentTeam =
-      player.teamId === this.homeTeam.teamId ? this.awayTeam : this.homeTeam;
-    return opponentTeam.players;
   }
 }
 

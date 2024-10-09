@@ -1,264 +1,154 @@
-const fs = require("fs");
+/*
+ * Field Class
+ * -----------
+ * Represents the soccer field, including dimensions and goal positions.
+ * Provides methods to check if a position is within bounds and to get goal positions.
+ */
 
 class Field {
-  constructor(playerCount) {
-    // Set dynamic field sizes based on the number of players
-    const { width, length } = this.setFieldDimensions(playerCount);
-    this.width = width; // Width of the field in meters (X-axis)
-    this.length = length; // Length of the field in meters (Y-axis)
+  constructor(playersPerTeam = 11) {
+    // Default dimensions
+    this.width = 68; // Default width in meters
+    this.length = 105; // Default length in meters
+    this.playersPerTeam = playersPerTeam;
+    this.goalWidth = 7.32; // Standard goal width in meters
+    this.goalDepth = 2.44; // Standard goal height in meters
 
-    // Goal and penalty box dimensions
-    this.goalWidth = this.calculateGoalWidth(); // Calculate and set the goal width
-    this.sixYardBoxLength = this.calculateSixYardBoxLength(); // Calculate and set the six-yard box length
-    this.sixYardBoxWidth = this.calculateSixYardBoxWidth(); // Calculate and set the six-yard box width
-    this.penaltyBoxLength = this.calculatePenaltyBoxLength(); // Calculate and set the penalty box length
-    this.penaltyBoxWidth = this.calculatePenaltyBoxWidth(); // Calculate and set the penalty box width
-
-    // Circle radii
-    this.centerCircleRadius = this.calculateCenterCircleRadius();
-    this.penaltySemiCircleRadius = this.calculatePenaltySemiCircleRadius();
-    this.cornerCircleRadius = this.calculateCornerCircleRadius();
+    // Initialize goal positions
+    this.homeGoal = this.getGoalPosition(false);
+    this.awayGoal = this.getGoalPosition(true);
   }
 
-  // Load pitch dimensions from the pitch.json file synchronously
-  loadPitchDimensionsFromFile() {
-    try {
-      const pitchData = fs.readFileSync("./data/pitch.json", "utf8");
-      const pitch = JSON.parse(pitchData);
-      return {
-        width: pitch.pitchWidth,
-        length: pitch.pitchHeight,
-      };
-    } catch (error) {
-      console.error("Error reading pitch.json file:", error);
-      // Return default field dimensions in case of error
-      return { width: 100, length: 132 };
+  // Set field dimensions from pitch details
+  setFieldDimensionsFromPitch(pitchDetails) {
+    if (pitchDetails && pitchDetails.pitchWidth && pitchDetails.pitchHeight) {
+      this.width = pitchDetails.pitchWidth;
+      this.length = pitchDetails.pitchHeight;
+
+      // Update goal dimensions based on new field dimensions
+      // Assuming the pitch dimensions are in pixels or units, we'll scale the goal size accordingly
+      const standardWidth = 68; // Standard field width in meters
+      const standardLength = 105; // Standard field length in meters
+
+      // Calculate scaling factors
+      const widthScale = this.width / standardWidth;
+      const lengthScale = this.length / standardLength;
+
+      this.goalWidth = 7.32 * widthScale; // Scale goal width
+      this.goalDepth = 2.44 * lengthScale; // Scale goal depth
+
+      console.log(
+        `Field dimensions set to width: ${this.width} units, length: ${this.length} units.`
+      );
+    } else {
+      console.error("Invalid pitch details provided.");
     }
   }
 
-  // Set field dimensions based on player count and JSON file (synchronous)
-  setFieldDimensions(playerCount) {
-    // Read the dimensions from pitch.json
-    const pitchDimensions = this.loadPitchDimensionsFromFile();
+  // Get the position of the goal
+  // isAwayGoal: true for away team's goal (top), false for home team's goal (bottom)
+  getGoalPosition(isAwayGoal) {
+    const halfWidth = this.width / 2;
+    const halfLength = this.length / 2;
+    const goalHalfWidth = this.goalWidth / 2;
 
-    // Set field dimensions based on the number of players and pitch file
-    switch (playerCount) {
-      case 6: // 6v6
-        return { width: 55, length: 72 };
-      case 7: // 7v7
-        return { width: 65, length: 82 };
-      case 11: // 11v11
-      default: // Use pitch.json dimensions for full-size field
-        return pitchDimensions;
-    }
+    const yPosition = isAwayGoal ? halfLength : -halfLength;
+
+    const goalPosition = {
+      leftPost: {
+        x: -goalHalfWidth,
+        y: yPosition,
+      },
+      rightPost: {
+        x: goalHalfWidth,
+        y: yPosition,
+      },
+      center: {
+        x: 0,
+        y: yPosition,
+      },
+    };
+
+    return goalPosition;
   }
 
-  // Coordinate system with the origin at the center spot
-  getCenterPosition() {
-    // Return the center position of the field, which is the origin (0, 0)
-    return { x: 0, y: 0 };
-  }
-
+  // Check if a position is within the field boundaries
   isWithinBounds(position) {
-    // Check if a given position is within the field's boundaries
+    const halfWidth = this.width / 2;
+    const halfLength = this.length / 2;
 
-    const { x, y } = position;
     return (
-      x >= -this.width / 2 &&
-      x <= this.width / 2 &&
-      y >= -this.length / 2 &&
-      y <= this.length / 2
+      position.x >= -halfWidth &&
+      position.x <= halfWidth &&
+      position.y >= -halfLength &&
+      position.y <= halfLength
     );
   }
 
-  getCoordinateSystem() {
-    // Return the field's coordinate system boundaries with the center as origin
+  // Get the closest point within the field boundaries to a given position
+  constrainToBounds(position) {
+    const halfWidth = this.width / 2;
+    const halfLength = this.length / 2;
+
     return {
-      origin: { x: 0, y: 0 }, // Center spot
-      topLeft: { x: -this.width / 2, y: this.length / 2 }, // Top-left corner
-      topRight: { x: this.width / 2, y: this.length / 2 }, // Top-right corner
-      bottomLeft: { x: -this.width / 2, y: -this.length / 2 }, // Bottom-left corner
-      bottomRight: { x: this.width / 2, y: -this.length / 2 }, // Bottom-right corner
+      x: Math.max(-halfWidth, Math.min(halfWidth, position.x)),
+      y: Math.max(-halfLength, Math.min(halfLength, position.y)),
     };
   }
 
-  calculateGoalWidth() {
-    // Calculate the width of the goal area, typically around 24% of the field width
-    return this.width * 0.24;
-  }
-
-  calculateSixYardBoxLength() {
-    // Calculate the length of the six-yard box
-    return this.length * 0.05; // Example: 5% of the field length
-  }
-
-  calculateSixYardBoxWidth() {
-    // Calculate the width of the six-yard box
-    return this.width * 0.26; // Example: 26% of the field width
-  }
-
-  calculatePenaltyBoxLength() {
-    // Calculate the length of the penalty box
-    return this.length * 0.16; // Example: 16% of the field length
-  }
-
-  calculatePenaltyBoxWidth() {
-    // Calculate the width of the penalty box
-    return this.width * 0.44; // Example: 44% of the field width
-  }
-
-  calculateCenterCircleRadius() {
-    // Calculate the radius of the center circle
-    return this.width * 0.1; // Example: 10% of the field width
-  }
-
-  calculatePenaltySemiCircleRadius() {
-    // Calculate the radius of the penalty semi-circle
-    return this.width * 0.07; // Example: 7% of the field width
-  }
-
-  calculateCornerCircleRadius() {
-    // Calculate the radius of the corner quarter circles
-    return this.width * 0.015; // Example: 1.5% of the field width
-  }
-
-  // Define the field zones: Attacking, Neutral, Defensive
-  getZones() {
-    const thirdLength = this.length / 3;
-    return {
-      defensiveZone: {
-        start: -this.length / 2,
-        end: -thirdLength / 2,
-      },
-      neutralZone: {
-        start: -thirdLength / 2,
-        end: thirdLength / 2,
-      },
-      attackingZone: {
-        start: thirdLength / 2,
-        end: this.length / 2,
-      },
-    };
-  }
-
-  // Define the penalty areas relative to the center
-  getPenaltyArea(team) {
-    const penaltyBoxYStart = this.penaltyBoxLength - this.length / 2;
-    const penaltyBoxYEnd = this.length / 2 - this.penaltyBoxLength;
-
-    if (team === "home") {
-      return {
-        topLeft: { x: -this.penaltyBoxWidth / 2, y: penaltyBoxYStart },
-        topRight: { x: this.penaltyBoxWidth / 2, y: penaltyBoxYStart },
-        bottomLeft: { x: -this.penaltyBoxWidth / 2, y: -this.length / 2 },
-        bottomRight: { x: this.penaltyBoxWidth / 2, y: -this.length / 2 },
-      };
-    } else {
-      return {
-        topLeft: {
-          x: -this.penaltyBoxWidth / 2,
-          y: this.length / 2,
-        },
-        topRight: { x: this.penaltyBoxWidth / 2, y: this.length / 2 },
-        bottomLeft: { x: -this.penaltyBoxWidth / 2, y: penaltyBoxYEnd },
-        bottomRight: { x: this.penaltyBoxWidth / 2, y: penaltyBoxYEnd },
-      };
-    }
-  }
-
-  // Define the six-yard box areas relative to the center
-  getSixYardBox(team) {
-    const sixYardBoxYStart = this.sixYardBoxLength - this.length / 2;
-    const sixYardBoxYEnd = this.length / 2 - this.sixYardBoxLength;
-
-    if (team === "home") {
-      return {
-        topLeft: { x: -this.sixYardBoxWidth / 2, y: sixYardBoxYStart },
-        topRight: { x: this.sixYardBoxWidth / 2, y: sixYardBoxYStart },
-        bottomLeft: { x: -this.sixYardBoxWidth / 2, y: -this.length / 2 },
-        bottomRight: { x: this.sixYardBoxWidth / 2, y: -this.length / 2 },
-      };
-    } else {
-      return {
-        topLeft: { x: -this.sixYardBoxWidth / 2, y: this.length / 2 },
-        topRight: { x: this.sixYardBoxWidth / 2, y: this.length / 2 },
-        bottomLeft: { x: -this.sixYardBoxWidth / 2, y: sixYardBoxYEnd },
-        bottomRight: { x: this.sixYardBoxWidth / 2, y: sixYardBoxYEnd },
-      };
-    }
-  }
-
-  // Define the center circle
+  // Get the center circle position and radius
   getCenterCircle() {
-    // Return the coordinates and radius for drawing the center circle
-    const center = this.getCenterPosition();
+    // Adjust radius based on field scaling
+    const standardRadius = 9.15; // Standard radius in meters
+    const lengthScale = this.length / 105;
+    const radius = standardRadius * lengthScale;
+
     return {
-      center,
-      radius: this.centerCircleRadius,
+      center: { x: 0, y: 0 },
+      radius: radius,
     };
   }
 
-  // Define the penalty semi-circle
-  getPenaltySemiCircle(team) {
-    // Return the coordinates and radius for drawing the penalty semi-circle
-    const penaltySpot =
-      team === "home"
-        ? { x: 0, y: -this.length / 2 + this.penaltyBoxLength }
-        : { x: 0, y: this.length / 2 - this.penaltyBoxLength };
+  // Get the penalty area positions for a given side
+  getPenaltyArea(isAwaySide) {
+    const standardPenaltyAreaWidth = 40.32; // Width of penalty area in meters
+    const standardPenaltyAreaDepth = 16.5; // Depth of penalty area in meters
+    const widthScale = this.width / 68;
+    const lengthScale = this.length / 105;
+
+    const penaltyAreaWidth = standardPenaltyAreaWidth * widthScale;
+    const penaltyAreaDepth = standardPenaltyAreaDepth * lengthScale;
+
+    const halfWidth = this.width / 2;
+    const yPosition = isAwaySide
+      ? this.length / 2 - penaltyAreaDepth
+      : -this.length / 2 + penaltyAreaDepth;
+
     return {
-      center: penaltySpot,
-      radius: this.penaltySemiCircleRadius,
+      topLeft: { x: -penaltyAreaWidth / 2, y: yPosition },
+      topRight: { x: penaltyAreaWidth / 2, y: yPosition },
+      bottomLeft: {
+        x: -penaltyAreaWidth / 2,
+        y: isAwaySide ? this.length / 2 : -this.length / 2,
+      },
+      bottomRight: {
+        x: penaltyAreaWidth / 2,
+        y: isAwaySide ? this.length / 2 : -this.length / 2,
+      },
     };
   }
 
-  // Define the penalty spot
-  getPenaltySpot(team) {
-    // Return the coordinates for the penalty spot based on the team
-    return {
-      x: 0,
-      y:
-        team === "home"
-          ? -this.length / 2 + this.penaltyBoxLength
-          : this.length / 2 - this.penaltyBoxLength,
-    };
-  }
-
-  // Define the corner circle
-  getCornerCircle(xSide, ySide) {
-    // Return the coordinates and radius for drawing the corner quarter circle based on the side (left or right)
-    const x = xSide === "left" ? -this.width / 2 : this.width / 2;
-    const y = ySide === "top" ? this.length / 2 : -this.length / 2;
+  // Get the position of the corner flags
+  getCornerPositions() {
+    const halfWidth = this.width / 2;
+    const halfLength = this.length / 2;
 
     return {
-      center: { x, y },
-      radius: this.cornerCircleRadius,
+      topLeft: { x: -halfWidth, y: halfLength },
+      topRight: { x: halfWidth, y: halfLength },
+      bottomLeft: { x: -halfWidth, y: -halfLength },
+      bottomRight: { x: halfWidth, y: -halfLength },
     };
-  }
-
-  // Define the center spot
-  getCenterSpot() {
-    // Return the coordinates for the center spot
-    return this.getCenterPosition();
-  }
-
-  getGoalPosition(isHome) {
-    // If isHome is false, flip the y-coordinates to represent the away team
-    const yMultiplier = isHome ? 1 : -1;
-
-    return {
-      leftPost: { x: -this.width / 4, y: (yMultiplier * this.length) / 2 },
-      rightPost: { x: this.width / 4, y: (yMultiplier * this.length) / 2 },
-      // crossBar: {}  // Add crossbar logic when needed
-    };
-  }
-
-  setFieldDimensionsFromPitch(pitchDetails) {
-    if (pitchDetails.pitchWidth && pitchDetails.pitchHeight) {
-      this.width = pitchDetails.pitchWidth;
-      this.length = pitchDetails.pitchHeight;
-    } else {
-      console.error("Invalid pitch details: Missing pitch width or height.");
-    }
   }
 }
 

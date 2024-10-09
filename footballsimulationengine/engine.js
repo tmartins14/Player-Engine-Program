@@ -1,3 +1,8 @@
+// Engine Script
+// -------------
+// This script initializes the game, creates teams, assigns roles, and manages the match simulation.
+
+const fs = require("fs"); // Import the 'fs' module to read the pitch.json file
 const Match = require("./components/Match");
 const Team = require("./components/Team");
 const Player = require("./components/Player");
@@ -8,39 +13,24 @@ const Field = require("./components/Field");
 //------------------------
 
 /**
- * Initializes the game with two teams and pitch details.
- * This sets up the match and kicks it off with the defined rules and player positions.
- * @param {Object} team1 - First team object (home team).
- * @param {Object} team2 - Second team object (away team).
- * @param {Object} pitchDetails - Pitch object containing pitch width, length, etc.
- * @returns {Object} match - The initialized match object.
+ * Creates a team with players assigned to positions based on the formation.
+ * @param {String} name - The name of the team.
+ * @param {String} formation - The team's formation (e.g., '4-4-2', '4-3-3').
+ * @param {String} teamSide - 'home' or 'away'
+ * @returns {Team} team - The created team with players.
  */
+const createTeam = async (name, formation, teamSide) => {
+  const team = new Team(name, formation, teamSide);
 
-const createTeam = async (name, formation) => {
-  const team = new Team(name, formation);
-
-  // Define a default 4-4-2 formation positions array
-  const formationPositions = [
-    "GK",
-    "RB",
-    "CB1",
-    "CB2",
-    "LB",
-    "RM",
-    "CM1",
-    "CM2",
-    "LM",
-    "ST1",
-    "ST2",
-  ];
+  // Get formation positions from the team
+  const formationPositions = team.getFormationPositions();
 
   // Loop through formation positions and create players
-  for (let i = 0; i < formationPositions.length; i++) {
-    const positionKey = formationPositions[i]; // Assign position based on formation
+  Object.keys(formationPositions).forEach((positionKey, index) => {
     const player = new Player({
-      name: `${name} Player ${i + 1}`,
+      name: `${name} Player ${index + 1}`,
       teamId: team.name,
-      position: positionKey, // Assign the specific formation position
+      position: positionKey,
       stats: {
         rating: 75,
         pace: 70,
@@ -49,36 +39,38 @@ const createTeam = async (name, formation) => {
         defending: 70,
         passing: 75,
         physical: 70,
-        saving: 50,
+        heading: 65, // Added heading stat
+        saving: positionKey === "GK" ? 80 : 50,
       },
       fitness: 100,
       injured: false,
-      field: new Field(11),
     });
     team.addPlayer(player); // Add player to team
-  }
+  });
 
   return team; // Return the created team
 };
 
 /**
- * Initializes the game by creating home and away teams and setting up the pitch details.
- * @param {Object} team1 - First team object.
- * @param {Object} team2 - Second team object.
- * @param {Object} pitchDetails - The pitch configuration with width and height.
- * @returns {Object} match - The initialized match object.
+ * Assigns roles to players in a team based on their stats and positions.
+ * @param {Team} team - The team to assign roles to.
  */
-
 function assignRoles(team) {
-  // Assign captain: the player with the highest leadership attribute or first player
-  const captain = team.players[0];
+  // Assign captain: the player with the highest rating or first player
+  const captain = team.players.reduce((bestPlayer, player) => {
+    return player.stats.rating > bestPlayer.stats.rating ? player : bestPlayer;
+  }, team.players[0]);
   captain.setRoles({ captain: true });
 
-  // Assign vice-captain: the player with the next highest leadership attribute or second player
-  const viceCaptain = team.players[1] || captain;
-  if (viceCaptain !== captain) {
-    viceCaptain.setRoles({ viceCaptain: true });
-  }
+  // Assign vice-captain: the player with the next highest rating
+  const viceCaptain = team.players
+    .filter((player) => player !== captain)
+    .reduce((bestPlayer, player) => {
+      return player.stats.rating > bestPlayer.stats.rating
+        ? player
+        : bestPlayer;
+    }, team.players[0]);
+  viceCaptain.setRoles({ viceCaptain: true });
 
   // Assign penalty taker: player with the highest shooting stat
   let penaltyTaker = team.players.reduce((bestPlayer, player) => {
@@ -121,10 +113,30 @@ function assignRoles(team) {
   }
 }
 
-async function initiateGame(team1, team2, pitchDetails) {
-  // Create the home and away teams using the new Team constructor
-  const homeTeam = new Team(team1.name, team1.formation);
-  const awayTeam = new Team(team2.name, team2.formation);
+/**
+ * Initializes the game by creating home and away teams and setting up the pitch details.
+ * @param {Object} team1 - First team object.
+ * @param {Object} team2 - Second team object.
+ * @returns {Object} match - The initialized match object.
+ */
+async function initiateGame(team1, team2) {
+  // Read the pitch details from 'pitch.json'
+  let pitchDetails;
+  try {
+    const pitchData = fs.readFileSync("./data/pitch.json", "utf8");
+    pitchDetails = JSON.parse(pitchData);
+  } catch (error) {
+    console.error("Error reading pitch.json:", error);
+    // Use default pitch dimensions if there's an error
+    pitchDetails = {
+      pitchWidth: 68, // Standard width in meters
+      pitchHeight: 105, // Standard length in meters
+    };
+  }
+
+  // Create the home and away teams using the Team constructor
+  const homeTeam = new Team(team1.name, team1.formation, "home");
+  const awayTeam = new Team(team2.name, team2.formation, "away");
 
   // Initialize players for the home team
   team1.players.forEach((playerData) => {
@@ -135,7 +147,6 @@ async function initiateGame(team1, team2, pitchDetails) {
       stats: playerData.stats,
       fitness: playerData.fitness || 100,
       injured: playerData.injured || false,
-      field: new Field(11),
     });
     homeTeam.addPlayer(player);
   });
@@ -149,7 +160,6 @@ async function initiateGame(team1, team2, pitchDetails) {
       stats: playerData.stats,
       fitness: playerData.fitness || 100,
       injured: playerData.injured || false,
-      field: new Field(11),
     });
     awayTeam.addPlayer(player);
   });
@@ -158,31 +168,27 @@ async function initiateGame(team1, team2, pitchDetails) {
   assignRoles(homeTeam);
   assignRoles(awayTeam);
 
-  // Initialize the match object with the teams and field details
-  const match = new Match(homeTeam, awayTeam);
-
   // Initialize the field dimensions using pitchDetails
   const field = new Field(11);
   field.setFieldDimensionsFromPitch(pitchDetails); // Use pitchDetails from pitch.json to set the dimensions
 
+  // Set field reference for teams and players
+  homeTeam.field = field;
+  awayTeam.field = field;
+
+  homeTeam.players.forEach((player) => {
+    player.field = field;
+  });
+  awayTeam.players.forEach((player) => {
+    player.field = field;
+  });
+
+  // Initialize the match object with the teams and field details
+  const match = new Match(homeTeam, awayTeam);
   match.field = field; // Assign field to the match object
 
-  match.initializePositions(false); // Initialize player positions
-
-  // Log the current position of each player in the homeTeam
-  //   homeTeam.players.forEach((player) => {
-  //     console.log(
-  //       `${player.name} (${player.position}) is at position: `,
-  //       player.currentPosition
-  //     );
-  //   });
-
-  //   awayTeam.players.forEach((player) => {
-  //     console.log(
-  //       `${player.name} (${player.position}) is at position: `,
-  //       player.currentPosition
-  //     );
-  //   });
+  // Initialize positions for both teams
+  match.initializePositions(false);
 
   return match;
 }
@@ -190,16 +196,15 @@ async function initiateGame(team1, team2, pitchDetails) {
 /**
  * Simulates the next frame of the match and returns the updated match details.
  * @param {Object} match - The match object containing the current state.
- * @param {Function} onUpdatePositions - Callback function to handle position updates.
- * @returns {Array} matchDetails - The updated player positions, ball position, and match data.
+ * @returns {Object} - An object containing the updated match object and matchDetails.
  */
 async function playIteration(match) {
-  // Initialize an array to hold match details including player positions
-  const matchDetails = [];
+  // Initialize an object to hold match details including player positions
+  const matchDetails = {};
 
-  // Push the pitch dimensions first
-  matchDetails.push(match.field.width);
-  matchDetails.push(match.field.length);
+  // Push the pitch dimensions
+  matchDetails.fieldWidth = match.field.width;
+  matchDetails.fieldLength = match.field.length;
 
   // Initialize match if it's not started yet
   if (!match.isPlaying) {
@@ -213,41 +218,70 @@ async function playIteration(match) {
   // Get current positions
   const currentPositions = match.getCurrentPositions();
 
-  // Push each player's position into matchDetails
-  currentPositions.forEach((position) => {
-    matchDetails.push(position.x);
-    matchDetails.push(position.y);
-  });
+  // Extract positions into matchDetails
+  matchDetails.homeTeamPositions = [];
+  matchDetails.awayTeamPositions = [];
+  let index = 0;
 
-  // Push the match summary details (teams, ball, etc.)
-  matchDetails.push({
-    homeTeam: {
-      name: match.homeTeam.name,
-      players: match.homeTeam.players.map((player) => ({
-        name: player.name,
-        position: player.position,
-        rating: player.stats.rating,
-        fitness: player.fitness,
-        currentPOS: [player.currentPosition.x, player.currentPosition.y],
-      })),
-    },
-    awayTeam: {
-      name: match.awayTeam.name,
-      players: match.awayTeam.players.map((player) => ({
-        name: player.name,
-        position: player.position,
-        rating: player.stats.rating,
-        fitness: player.fitness,
-        currentPOS: [player.currentPosition.x, player.currentPosition.y],
-      })),
-    },
-    ball: {
-      position: [match.ball.position.x, match.ball.position.y],
-      withPlayer: match.ball.withPlayer || false,
-    },
-    matchTime: match.matchTime,
-    half: match.half || 1,
-  });
+  // Assuming both teams have the same number of players
+  const numPlayers = match.homeTeam.players.length;
+
+  // Extract home team positions
+  for (let i = 0; i < numPlayers; i++) {
+    matchDetails.homeTeamPositions.push({
+      x: currentPositions[index],
+      y: currentPositions[index + 1],
+    });
+    index += 2;
+  }
+
+  // Extract away team positions
+  for (let i = 0; i < numPlayers; i++) {
+    matchDetails.awayTeamPositions.push({
+      x: currentPositions[index],
+      y: currentPositions[index + 1],
+    });
+    index += 2;
+  }
+
+  // Extract ball position
+  matchDetails.ballPosition = {
+    x: currentPositions[index],
+    y: currentPositions[index + 1],
+  };
+
+  // Include additional match details
+  matchDetails.homeTeam = {
+    name: match.homeTeam.name,
+    score: match.homeScore,
+    players: match.homeTeam.players.map((player) => ({
+      name: player.name,
+      position: player.position,
+      rating: player.stats.rating,
+      fitness: player.fitness,
+      currentPOS: [player.currentPosition.x, player.currentPosition.y],
+    })),
+  };
+
+  matchDetails.awayTeam = {
+    name: match.awayTeam.name,
+    score: match.awayScore,
+    players: match.awayTeam.players.map((player) => ({
+      name: player.name,
+      position: player.position,
+      rating: player.stats.rating,
+      fitness: player.fitness,
+      currentPOS: [player.currentPosition.x, player.currentPosition.y],
+    })),
+  };
+
+  matchDetails.ball = {
+    position: [match.ball.position.x, match.ball.position.y],
+    withPlayer: match.ball.carrier ? match.ball.carrier.name : null,
+  };
+
+  matchDetails.matchTime = match.matchTime;
+  matchDetails.half = match.matchTime < match.maxTime / 2 ? 1 : 2;
 
   // Return both the updated match object and matchDetails
   return { match, matchDetails };
@@ -256,22 +290,22 @@ async function playIteration(match) {
 /**
  * Starts the second half of the match, switching sides and resetting necessary variables.
  * @param {Object} match - The match object initialized with the teams.
- * @returns {Array} matchDetails - The updated match details after switching sides.
+ * @returns {Object} - The updated match details after switching sides.
  */
 async function startSecondHalf(match) {
   // Switch the sides for both teams
-  match.homeTeam.switchSides();
-  match.awayTeam.switchSides();
-
-  // Re-initialize positions with the sides switched
+  match.isHomeTeamKickingOff = !match.isHomeTeamKickingOff;
   match.initializePositions(true); // true indicates it's the second half
 
-  const matchDetails = [];
+  // Reset match time to start of second half
+  match.matchTime = match.maxTime / 2;
 
-  // Kick off the second half and capture the positions
-  //   match.playMatch((currentPositions) => {
-  //     matchDetails.push(currentPositions); // Store positions for the second half
-  //   });
+  // Prepare match details for the second half
+  const matchDetails = {};
+
+  matchDetails.message = "Second half started.";
+  matchDetails.matchTime = match.matchTime;
+  matchDetails.half = 2;
 
   return matchDetails; // Return the updated match details for the second half
 }

@@ -200,6 +200,7 @@ async function initiateGame(team1, team2) {
  */
 async function playIteration(match) {
   // Initialize an object to hold match details including player positions
+
   const matchDetails = {};
 
   // Push the pitch dimensions
@@ -211,8 +212,15 @@ async function playIteration(match) {
     match.playMatch();
   }
 
-  // Simulate the match by updating it by one time step
   const deltaTime = 0.1; // Match the client's update frequency (100ms)
+
+  if (match.matchTime === 0) {
+    match.matchTime += deltaTime;
+    return;
+  }
+
+  // Simulate the match by updating it by one time step
+
   match.updateMatch(deltaTime);
 
   // Get current positions

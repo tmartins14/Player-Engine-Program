@@ -252,7 +252,10 @@ class Team {
         // Ball carrier possible actions
         actions.push({ type: "shoot" });
         this.players.forEach((teammate) => {
-          if (teammate !== player && !teammate.injured) {
+          if (
+            teammate.currentPosition !== player.currentPosition &&
+            !teammate.injured
+          ) {
             actions.push({ type: "pass", targetPlayer: teammate });
           }
         });

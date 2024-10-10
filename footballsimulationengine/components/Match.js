@@ -119,14 +119,14 @@ class Match {
     }
 
     // Position the ball carrier at the center spot
-    playerWithBall.setPosition({ x: 0, y: 0 });
+    // playerWithBall.setPosition({ x: 0, y: 0 });
     playerWithBall.hasBall = true;
     this.ball.changeCarrier(playerWithBall);
 
     console.log(`${playerWithBall.name} is kicking off.`);
 
     // Start the first action
-    this.updateMatch(0); // Update immediately to process the first action
+    // this.updateMatch(0); // Update immediately to process the first action
   }
 
   // Update match simulation per time step

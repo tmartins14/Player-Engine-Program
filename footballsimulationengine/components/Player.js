@@ -162,36 +162,90 @@ class Player {
   }
 
   // Pass the ball to a teammate
+  // In the Player class
+
   actionPass(targetPlayer, ball) {
     if (!this.hasBall) {
       console.error(`${this.name} does not have the ball to pass.`);
       return;
     }
 
-    // Calculate pass success probability
+    // console.log(targetPlayer.currentPosition, this.currentPosition);
+
     const passingSkill = this.stats.passing;
-    const distance = this.calculateDistance(
-      this.currentPosition,
+
+    // Calculate the direction vector from current position to target player
+    const dx = targetPlayer.currentPosition.x - this.currentPosition.x;
+    const dy = targetPlayer.currentPosition.y - this.currentPosition.y;
+
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    // Maximum possible pass distance (diagonal of the field)
+    const maxDistance = Math.sqrt(
+      this.field.width * this.field.width +
+        this.field.length * this.field.length
+    );
+
+    // Maximum angular error in radians (e.g., 30 degrees)
+    const maxErrorAngle = (Math.PI / 180) * 30; // Convert 30 degrees to radians
+
+    // Calculate error factor based on passing skill and distance
+    const errorFactor = ((100 - passingSkill) / 100) * (distance / maxDistance);
+
+    // Calculate the maximum angular error for this pass
+    const angularError = errorFactor * maxErrorAngle;
+
+    // Generate a random angular error between -angularError to +angularError
+    const randomAngularError = (Math.random() * 2 - 1) * angularError;
+
+    // Calculate the actual pass direction by rotating the direction vector by randomAngularError
+
+    // Normalize the direction vector
+    const dirLength = Math.sqrt(dx * dx + dy * dy);
+    const dirX = dx / dirLength;
+    const dirY = dy / dirLength;
+
+    // Apply rotation
+    const cosAngle = Math.cos(randomAngularError);
+    const sinAngle = Math.sin(randomAngularError);
+
+    const actualDirX = dirX * cosAngle - dirY * sinAngle;
+    const actualDirY = dirX * sinAngle + dirY * cosAngle;
+
+    // Determine the pass end position
+    const passDistance = distance; // Assume the pass travels the intended distance
+
+    const passEndPosition = {
+      x: this.currentPosition.x + actualDirX * passDistance,
+      y: this.currentPosition.y + actualDirY * passDistance,
+    };
+
+    // Update ball position
+    console.log(`${this.name} passes towards ${targetPlayer.name}.`);
+
+    this.hasBall = false;
+    ball.carrier = null;
+    ball.position = passEndPosition;
+
+    // Check if the pass is close enough for the target player to receive
+    const targetPlayerDistance = this.calculateDistance(
+      passEndPosition,
       targetPlayer.currentPosition
     );
 
-    const passSuccessProbability = passingSkill / 100 - distance / 100;
-    const passSuccessful = Math.random() < passSuccessProbability;
+    const receiveThreshold = 5; // Units within which the targetPlayer can receive the ball
 
-    if (passSuccessful) {
-      console.log(`${this.name} successfully passes to ${targetPlayer.name}.`);
-      this.hasBall = false;
+    if (targetPlayerDistance <= receiveThreshold) {
+      console.log(`${targetPlayer.name} receives the pass from ${this.name}.`);
       targetPlayer.hasBall = true;
       ball.changeCarrier(targetPlayer);
     } else {
-      console.log(`${this.name} failed to pass to ${targetPlayer.name}.`);
-      this.hasBall = false;
-      ball.carrier = null;
-      // Ball becomes loose at the target position
-      ball.position = {
-        x: targetPlayer.currentPosition.x,
-        y: targetPlayer.currentPosition.y,
-      };
+      console.log(
+        `${this.name}'s pass misses ${
+          targetPlayer.name
+        } by ${targetPlayerDistance.toFixed(2)} units.`
+      );
+      // Ball remains at passEndPosition; other players can attempt to reach it
     }
   }
 

@@ -7,6 +7,7 @@
 
 const Ball = require("./Ball");
 const Field = require("./Field");
+const { calculateDistance } = require("../utilities/utils");
 
 class Match {
   constructor(homeTeam, awayTeam) {
@@ -15,7 +16,7 @@ class Match {
     this.field = new Field(11); // 11v11 field
     this.ball = new Ball(this.field);
     this.matchTime = 0; // Start time in seconds
-    this.maxTime = 2 * 60; // Match duration in seconds (90 minutes)
+    this.maxTime = 2 * 45 * 60; // Match duration in seconds (90 minutes)
     this.homeScore = 0;
     this.awayScore = 0;
     this.isPlaying = false; // Indicates if the match is currently ongoing
@@ -67,7 +68,7 @@ class Match {
 
     console.log(
       `Player positions initialized for both teams. ${
-        this.isHomeTeamKickingOff ? "Home team" : "Away team"
+        this.isHomeTeamKickingOff ? this.homeTeam.name : this.awayTeam.name
       } is kicking off.`
     );
   }
@@ -94,39 +95,59 @@ class Match {
     const kickingOffTeam = this.isHomeTeamKickingOff
       ? this.homeTeam
       : this.awayTeam;
-    const opponentTeam = this.getOpponentTeam(kickingOffTeam);
 
-    // Find the player assigned to kick off (e.g., center forward)
-    let playerWithBall = kickingOffTeam.players.find(
-      (player) => player.position === "ST" || player.position === "ST1"
+    // Find the player positioned at (0, 0)
+    let playerAtCenter = kickingOffTeam.players.find(
+      (player) =>
+        player.currentPosition.x === 0 && player.currentPosition.y === 0
     );
 
-    // If no specific player found, pick any available forward
-    if (!playerWithBall) {
-      playerWithBall = kickingOffTeam.players.find((player) =>
-        ["CF", "CAM"].includes(player.position)
-      );
-    }
-
-    // If still no player found, pick any available player
-    if (!playerWithBall) {
-      playerWithBall = kickingOffTeam.players[0];
-    }
-
-    if (!playerWithBall) {
-      console.error("No player found to kick off.");
+    if (!playerAtCenter) {
+      console.error("No player found at position (0, 0) for kickoff.");
       return;
     }
 
-    // Position the ball carrier at the center spot
-    // playerWithBall.setPosition({ x: 0, y: 0 });
-    playerWithBall.hasBall = true;
-    this.ball.changeCarrier(playerWithBall);
+    // Assign the ball to the player at (0, 0)
+    playerAtCenter.hasBall = true;
+    this.ball.changeCarrier(playerAtCenter);
+    this.ball.position = { x: 0, y: 0 };
 
-    console.log(`${playerWithBall.name} is kicking off.`);
+    console.log(`${playerAtCenter.name} is kicking off.`);
 
-    // Start the first action
-    // this.updateMatch(0); // Update immediately to process the first action
+    // Find the closest teammate to the player at center (excluding themselves)
+    let closestTeammate = null;
+    let shortestDistance = Infinity;
+
+    kickingOffTeam.players.forEach((player) => {
+      if (player !== playerAtCenter) {
+        const distance = calculateDistance(
+          playerAtCenter.currentPosition,
+          player.currentPosition
+        );
+        if (distance < shortestDistance) {
+          shortestDistance = distance;
+          closestTeammate = player;
+        }
+      }
+    });
+
+    if (!closestTeammate) {
+      console.error("No teammate found to receive the kickoff pass.");
+      return;
+    }
+
+    console.log(`${playerAtCenter.name} will pass to ${closestTeammate.name}.`);
+
+    // Have playerAtCenter perform a pass action
+    const action = {
+      type: "pass",
+      targetPlayer: closestTeammate,
+      passType: "toFeet",
+    };
+    playerAtCenter.performAction(action, this.ball);
+
+    // Assign a receivePass action to the closest teammate
+    closestTeammate.performAction({ type: "receivePass" }, this.ball);
   }
 
   // Update match simulation per time step
@@ -146,12 +167,19 @@ class Match {
     // Compute game context
     const gameContext = this.determineGameContext();
 
+    // Update ball's position
+    this.ball.updatePosition(deltaTime);
+
+    // Check for ball possession changes (e.g., players gaining possession of a moving ball)
+    this.checkForBallPossession();
+
     // Simulate actions for each team, passing gameContext
     this.homeTeam.decideTeamActions(this.ball, this.awayTeam, gameContext);
     this.awayTeam.decideTeamActions(this.ball, this.homeTeam, gameContext);
 
-    // Update ball's position
-    this.ball.updatePosition(deltaTime);
+    // Update player positions based on their actions
+    this.homeTeam.updatePlayers(deltaTime, this.ball, this.awayTeam);
+    this.awayTeam.updatePlayers(deltaTime, this.ball, this.homeTeam);
 
     // Check for events
     if (this.isBallNearBoundary()) {
@@ -163,6 +191,43 @@ class Match {
     }
   }
 
+  // Method to check if any player can gain possession of the ball
+  checkForBallPossession() {
+    if (this.ball.carrier) {
+      // Ball is already in possession
+      return;
+    }
+
+    // Iterate over all players
+    const allPlayers = [...this.homeTeam.players, ...this.awayTeam.players];
+
+    allPlayers.forEach((player) => {
+      if (!player.hasBall) {
+        const distanceToBall = calculateDistance(
+          player.currentPosition,
+          this.ball.position
+        );
+
+        const controlRadius = player.calculateControlRadius(); // Adjusted based on field size
+
+        if (distanceToBall <= controlRadius) {
+          // Player gains possession
+          player.hasBall = true;
+          this.ball.changeCarrier(player);
+          this.ball.velocity = 0;
+          this.ball.isMoving = false;
+          this.ball.direction = { x: 0, y: 0 };
+          this.ball.destination = null;
+
+          console.log(`${player.name} gains possession of the ball.`);
+
+          // Decide next action after gaining possession
+          player.performAction({ type: "hold" }, this.ball);
+        }
+      }
+    });
+  }
+
   // Check if a goal is scored
   checkForGoal() {
     const homeGoal = this.field.getGoalPosition(false); // Home team's goal at the bottom
@@ -170,11 +235,15 @@ class Match {
 
     const { x, y } = this.ball.position;
 
+    // Adjust goal dimensions based on field size
+    const goalWidth = this.field.goalWidth; // Use field's goal width
+    const halfGoalWidth = goalWidth / 2;
+
     // Check if the ball crosses the home team's goal line
     if (
       y <= -this.field.length / 2 &&
-      x >= homeGoal.leftPost.x &&
-      x <= homeGoal.rightPost.x
+      x >= -halfGoalWidth &&
+      x <= halfGoalWidth
     ) {
       // Goal for away team
       this.awayScore += 1;
@@ -186,8 +255,8 @@ class Match {
     // Check if the ball crosses the away team's goal line
     if (
       y >= this.field.length / 2 &&
-      x >= awayGoal.leftPost.x &&
-      x <= awayGoal.rightPost.x
+      x >= -halfGoalWidth &&
+      x <= halfGoalWidth
     ) {
       // Goal for home team
       this.homeScore += 1;
@@ -214,14 +283,17 @@ class Match {
   checkForOutOfBounds() {
     const { x, y } = this.ball.position;
 
+    const halfFieldWidth = this.field.width / 2;
+    const halfFieldLength = this.field.length / 2;
+
     // Out on the sides for throw-ins
-    if (x < -this.field.width / 2 || x > this.field.width / 2) {
+    if (x < -halfFieldWidth || x > halfFieldWidth) {
       console.log("Ball went out for a throw-in.");
       this.resetForThrowIn();
     }
 
     // Out on the goal lines for corner kicks or goal kicks
-    if (y < -this.field.length / 2 || y > this.field.length / 2) {
+    if (y < -halfFieldLength || y > halfFieldLength) {
       if (this.ball.lastTouchedBy) {
         const lastTouchedByTeam = this.ball.lastTouchedBy.teamId;
         const attackingTeam =
@@ -251,30 +323,40 @@ class Match {
   // Check if the ball is near the boundary to optimize checks
   isBallNearBoundary(margin = 5) {
     const { x, y } = this.ball.position;
+    const halfFieldWidth = this.field.width / 2;
+    const halfFieldLength = this.field.length / 2;
     return (
-      Math.abs(x) > this.field.width / 2 - margin ||
-      Math.abs(y) > this.field.length / 2 - margin
+      Math.abs(x) > halfFieldWidth - margin ||
+      Math.abs(y) > halfFieldLength - margin
     );
   }
 
   // Check if the ball is near the goal area
   isBallNearGoal(margin = 5) {
     const { y } = this.ball.position;
-    return Math.abs(y) > this.field.length / 2 - margin;
+    const halfFieldLength = this.field.length / 2;
+    return Math.abs(y) > halfFieldLength - margin;
   }
 
   // Reset the ball for a throw-in
   resetForThrowIn() {
+    const halfFieldWidth = this.field.width / 2;
+
     // Determine which team takes the throw-in
     const team = this.ball.position.x > 0 ? this.awayTeam : this.homeTeam;
     const opponentTeam = this.getOpponentTeam(team);
 
     // Set the throw-in position
     const throwInPosition = {
-      x:
-        this.ball.position.x > 0 ? this.field.width / 2 : -this.field.width / 2,
+      x: this.ball.position.x > 0 ? halfFieldWidth : -halfFieldWidth,
       y: this.ball.position.y,
     };
+
+    // Ensure throw-in position is within field boundaries
+    throwInPosition.y = Math.max(
+      -this.field.length / 2,
+      Math.min(this.field.length / 2, throwInPosition.y)
+    );
 
     // Reset ball position
     this.ball.resetForThrowIn(throwInPosition);
@@ -282,7 +364,7 @@ class Match {
     // Choose a player to take the throw-in (nearest player)
     const playerTakingThrowIn = team.players.reduce((closest, player) => {
       if (player.injured) return closest;
-      const distance = player.calculateDistance(
+      const distance = calculateDistance(
         player.currentPosition,
         throwInPosition
       );
@@ -317,6 +399,9 @@ class Match {
 
   // Reset the ball for a goal kick
   resetForGoalKick(team) {
+    const fieldScalingFactor = this.calculateFieldScalingFactor();
+    const goalAreaY = 5 * fieldScalingFactor; // Adjusted distance from goal line
+
     // Find the goalkeeper or assigned goal kick taker
     const playerTakingGoalKick = team.players.find(
       (player) => player.position === "GK"
@@ -328,8 +413,8 @@ class Match {
         x: 0,
         y:
           team.teamSide === "home"
-            ? -this.field.length / 2 + 5
-            : this.field.length / 2 - 5,
+            ? -this.field.length / 2 + goalAreaY
+            : this.field.length / 2 - goalAreaY,
       };
       this.ball.resetForGoalKick(goalKickPosition);
 
@@ -467,6 +552,22 @@ class Match {
   // Helper method to get the opponent team
   getOpponentTeam(team) {
     return team === this.homeTeam ? this.awayTeam : this.homeTeam;
+  }
+
+  // Calculate field scaling factor based on field dimensions
+  calculateFieldScalingFactor() {
+    const standardFieldLength = 105; // meters
+    const standardFieldWidth = 68; // meters
+
+    const lengthScalingFactor = this.field.length / standardFieldLength;
+    const widthScalingFactor = this.field.width / standardFieldWidth;
+
+    // Use the geometric mean to balance scaling
+    const fieldScalingFactor = Math.sqrt(
+      lengthScalingFactor * widthScalingFactor
+    );
+
+    return fieldScalingFactor;
   }
 }
 
